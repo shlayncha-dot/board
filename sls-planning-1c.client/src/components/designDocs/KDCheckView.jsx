@@ -1,9 +1,16 @@
 import React from 'react';
 
-const MIN_COLUMN_WIDTH = 40;
+const MIN_COLUMN_WIDTH = 80;
 
-const KDTableRow = React.memo(({ row, tableColumns, isChecked, onToggleRow }) => (
-    <tr>
+const KDTableRow = React.memo(({
+    row,
+    tableColumns,
+    isChecked,
+    onToggleRow,
+    selectedCell,
+    onSelectCell
+}) => (
+    <tr className={isChecked ? 'kd-row-checked' : ''}>
         <td>
             <input
                 type="checkbox"
@@ -11,9 +18,20 @@ const KDTableRow = React.memo(({ row, tableColumns, isChecked, onToggleRow }) =>
                 onChange={() => onToggleRow(row.id)}
             />
         </td>
-        {tableColumns.map((column) => (
-            <td key={`${row.id}-${column.key}`}>{row[column.key]}</td>
-        ))}
+        {tableColumns.map((column) => {
+            const isSelectedCell = selectedCell?.rowId === row.id && selectedCell?.columnKey === column.key;
+
+            return (
+                <td
+                    key={`${row.id}-${column.key}`}
+                    className={isSelectedCell ? 'kd-cell-selected' : ''}
+                    onClick={() => onSelectCell(row.id, column.key)}
+                    title={String(row[column.key] ?? '')}
+                >
+                    {row[column.key]}
+                </td>
+            );
+        })}
     </tr>
 ));
 
@@ -32,10 +50,13 @@ const KDCheckView = ({
     onSetFilter,
     columnWidths,
     onSetColumnWidth,
-    onExcelUpload
+    onExcelUpload,
+    searchValue,
+    onSearchChange
 }) => {
     const [openFilterKey, setOpenFilterKey] = React.useState(null);
     const [pendingFilters, setPendingFilters] = React.useState({});
+    const [selectedCell, setSelectedCell] = React.useState(null);
     const resizeStateRef = React.useRef(null);
     const resizeRafRef = React.useRef(null);
     const filterPopoverRef = React.useRef(null);
@@ -47,6 +68,22 @@ const KDCheckView = ({
         localColumnWidthsRef.current = columnWidths;
     }, [columnWidths]);
 
+    React.useEffect(() => {
+        if (!selectedCell) {
+            return;
+        }
+
+        const rowExists = sortedRows.some((row) => row.id === selectedCell.rowId);
+
+        if (!rowExists) {
+            setSelectedCell(null);
+        }
+    }, [selectedCell, sortedRows]);
+
+    const handleSelectCell = React.useCallback((rowId, columnKey) => {
+        setSelectedCell({ rowId, columnKey });
+    }, []);
+
     const tableBodyRows = React.useMemo(() => (
         sortedRows.map((row) => (
             <KDTableRow
@@ -55,9 +92,11 @@ const KDCheckView = ({
                 tableColumns={tableColumns}
                 isChecked={Boolean(checkedRows[row.id])}
                 onToggleRow={onToggleRow}
+                selectedCell={selectedCell}
+                onSelectCell={handleSelectCell}
             />
         ))
-    ), [checkedRows, onToggleRow, sortedRows, tableColumns]);
+    ), [checkedRows, handleSelectCell, onToggleRow, selectedCell, sortedRows, tableColumns]);
 
     const closeFilterPopover = React.useCallback(() => {
         setOpenFilterKey(null);
@@ -183,10 +222,15 @@ const KDCheckView = ({
 
     const isColumnFiltered = (columnKey) => Boolean(columnFilters[columnKey]?.length);
 
+    const tablePixelWidth = React.useMemo(() => {
+        const allColumnsWidth = tableColumns.reduce((acc, column) => acc + (localColumnWidths[column.key] || 160), 44);
+        return `${allColumnsWidth}px`;
+    }, [localColumnWidths, tableColumns]);
+
     return (
         <section className="design-docs-page design-docs-check-page">
             <div className="check-toolbar">
-                <button type="button" onClick={() => verifyInputRef.current?.click()}>Загрузить Excel</button>
+                <button type="button" onClick={() => verifyInputRef.current?.click()}>📥 Загрузить Excel</button>
                 <input
                     ref={verifyInputRef}
                     type="file"
@@ -194,13 +238,22 @@ const KDCheckView = ({
                     className="hidden-input"
                     onChange={onExcelUpload}
                 />
-                <button type="button">Верификация</button>
-                <button type="button">Нейминг</button>
-                <button type="button">Общая проверка КД</button>
+                <button type="button">✅ Верификация</button>
+                <button type="button">🏷️ Нейминг</button>
+                <button type="button">🧩 Общая проверка КД</button>
+                <label className="kd-search-control">
+                    <span>🔎 Поиск</span>
+                    <input
+                        type="text"
+                        value={searchValue}
+                        onChange={(event) => onSearchChange(event.target.value)}
+                        placeholder="Введите текст"
+                    />
+                </label>
             </div>
 
             <div className="kd-table-wrap">
-                <table className="kd-table">
+                <table className="kd-table" style={{ minWidth: tablePixelWidth }}>
                     <colgroup>
                         <col style={{ width: '44px' }} />
                         {tableColumns.map((column) => (
@@ -227,7 +280,7 @@ const KDCheckView = ({
                                                 event.stopPropagation();
                                                 handleFilterOpen(column.key);
                                             }}
-                                        >▾</button>
+                                        >⛃</button>
                                     </div>
                                     {openFilterKey === column.key && (
                                         <div className="filter-popover" ref={filterPopoverRef} onClick={(event) => event.stopPropagation()}>
@@ -273,4 +326,4 @@ const KDCheckView = ({
     );
 };
 
-export default KDCheckView;
+export default React.memo(KDCheckView);

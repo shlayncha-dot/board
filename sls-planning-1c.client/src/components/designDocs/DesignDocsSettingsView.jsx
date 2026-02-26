@@ -8,6 +8,8 @@ const DesignDocsSettingsView = ({
     onPdfFolderFallbackChange,
     verificationParams,
     onVerificationParamChange,
+    specificationSettings,
+    onSpecificationSettingChange,
     onSave,
     onCancel
 }) => {
@@ -30,6 +32,44 @@ const DesignDocsSettingsView = ({
                         directory=""
                         onChange={onPdfFolderFallbackChange}
                     />
+                </div>
+            </div>
+
+            <div className="settings-horizontal-group specification-group">
+                <h2>Настройки Спецификации</h2>
+                <div className="specification-grid">
+                    <label>
+                        <span>Столбцы</span>
+                        <textarea
+                            rows={25}
+                            value={specificationSettings.columns}
+                            onChange={(event) => onSpecificationSettingChange('columns', event.target.value)}
+                        />
+                    </label>
+                    <label>
+                        <span>ТИП</span>
+                        <textarea
+                            rows={25}
+                            value={specificationSettings.type}
+                            onChange={(event) => onSpecificationSettingChange('type', event.target.value)}
+                        />
+                    </label>
+                    <label>
+                        <span>Покрытие</span>
+                        <textarea
+                            rows={25}
+                            value={specificationSettings.coverage}
+                            onChange={(event) => onSpecificationSettingChange('coverage', event.target.value)}
+                        />
+                    </label>
+                    <label>
+                        <span>Грунтовка</span>
+                        <textarea
+                            rows={25}
+                            value={specificationSettings.primer}
+                            onChange={(event) => onSpecificationSettingChange('primer', event.target.value)}
+                        />
+                    </label>
                 </div>
             </div>
 

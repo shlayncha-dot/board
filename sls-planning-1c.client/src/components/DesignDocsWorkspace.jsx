@@ -33,6 +33,13 @@ const createVerificationParams = () => [
     { type: 5, description: '', condition: '' }
 ];
 
+const createSpecificationSettings = () => ({
+    columns: '',
+    type: '',
+    coverage: '',
+    primer: ''
+});
+
 const getColumnKey = (header, index) => {
     const normalized = String(header || '')
         .trim()
@@ -79,6 +86,8 @@ const DesignDocsWorkspace = ({ activeSubItem }) => {
     const [savedPdfPath, setSavedPdfPath] = useState('C:/SLS/KD/PDF_DXF');
     const [verificationParams, setVerificationParams] = useState(createVerificationParams);
     const [savedVerificationParams, setSavedVerificationParams] = useState(createVerificationParams);
+    const [specificationSettings, setSpecificationSettings] = useState(createSpecificationSettings);
+    const [savedSpecificationSettings, setSavedSpecificationSettings] = useState(createSpecificationSettings);
 
     const [tableColumns, setTableColumns] = useState(defaultTableColumns);
     const [tableRows, setTableRows] = useState(sampleSpecs);
@@ -86,18 +95,33 @@ const DesignDocsWorkspace = ({ activeSubItem }) => {
     const [checkedRows, setCheckedRows] = useState({});
     const [columnFilters, setColumnFilters] = useState({});
     const [columnWidths, setColumnWidths] = useState(defaultColumnWidths);
+    const [searchValue, setSearchValue] = useState('');
 
     const filteredRows = useMemo(() => {
-        return tableRows.filter((row) => tableColumns.every((column) => {
-            const selectedValues = columnFilters[column.key];
+        const normalizedSearch = searchValue.trim().toLowerCase();
 
-            if (!selectedValues || selectedValues.length === 0) {
+        return tableRows.filter((row) => {
+            const passedColumnFilters = tableColumns.every((column) => {
+                const selectedValues = columnFilters[column.key];
+
+                if (!selectedValues || selectedValues.length === 0) {
+                    return true;
+                }
+
+                return selectedValues.includes(String(row[column.key] ?? ''));
+            });
+
+            if (!passedColumnFilters) {
+                return false;
+            }
+
+            if (!normalizedSearch) {
                 return true;
             }
 
-            return selectedValues.includes(String(row[column.key] ?? ''));
-        }));
-    }, [tableRows, tableColumns, columnFilters]);
+            return tableColumns.some((column) => String(row[column.key] ?? '').toLowerCase().includes(normalizedSearch));
+        });
+    }, [columnFilters, searchValue, tableColumns, tableRows]);
 
     const sortedRows = useMemo(() => {
         const rows = [...filteredRows];
@@ -133,7 +157,7 @@ const DesignDocsWorkspace = ({ activeSubItem }) => {
         return options;
     }, [tableColumns, tableRows]);
 
-    const visibleRowIds = sortedRows.map((row) => row.id);
+    const visibleRowIds = useMemo(() => sortedRows.map((row) => row.id), [sortedRows]);
     const allVisibleChecked = visibleRowIds.length > 0 && visibleRowIds.every((id) => checkedRows[id]);
 
     const toggleSort = useCallback((key) => {
@@ -194,7 +218,7 @@ const DesignDocsWorkspace = ({ activeSubItem }) => {
         }));
     }, []);
 
-    const applyExcelData = (sheetRows) => {
+    const applyExcelData = useCallback((sheetRows) => {
         const [headerRow, ...bodyRows] = sheetRows;
         const parsedColumns = headerRow.map((header, index) => ({
             key: getColumnKey(header, index),
@@ -224,7 +248,8 @@ const DesignDocsWorkspace = ({ activeSubItem }) => {
         setCheckedRows({});
         setColumnFilters({});
         setColumnWidths(nextWidths);
-    };
+        setSearchValue('');
+    }, []);
 
     const handleExcelUpload = async (event) => {
         const file = event.target.files?.[0];
@@ -289,14 +314,23 @@ const DesignDocsWorkspace = ({ activeSubItem }) => {
         )));
     };
 
+    const handleSpecificationSettingChange = (field, value) => {
+        setSpecificationSettings((prevState) => ({
+            ...prevState,
+            [field]: value
+        }));
+    };
+
     const handleSavePdfPath = () => {
         setSavedPdfPath(pdfPath);
         setSavedVerificationParams(verificationParams.map((row) => ({ ...row })));
+        setSavedSpecificationSettings({ ...specificationSettings });
     };
 
     const handleCancelPdfPath = () => {
         setPdfPath(savedPdfPath);
         setVerificationParams(savedVerificationParams.map((row) => ({ ...row })));
+        setSpecificationSettings({ ...savedSpecificationSettings });
     };
 
     return (
@@ -330,6 +364,8 @@ const DesignDocsWorkspace = ({ activeSubItem }) => {
                     columnWidths={columnWidths}
                     onSetColumnWidth={setColumnWidth}
                     onExcelUpload={handleExcelUpload}
+                    searchValue={searchValue}
+                    onSearchChange={setSearchValue}
                 />
             </div>
 
@@ -342,6 +378,8 @@ const DesignDocsWorkspace = ({ activeSubItem }) => {
                     onPdfFolderFallbackChange={handlePdfFolderFallback}
                     verificationParams={verificationParams}
                     onVerificationParamChange={handleVerificationParamChange}
+                    specificationSettings={specificationSettings}
+                    onSpecificationSettingChange={handleSpecificationSettingChange}
                     onSave={handleSavePdfPath}
                     onCancel={handleCancelPdfPath}
                 />

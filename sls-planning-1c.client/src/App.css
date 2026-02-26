@@ -618,15 +618,33 @@
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
+    align-items: center;
+}
+
+.kd-search-control {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #2f2f2f;
+}
+
+.kd-search-control input {
+    border: 1px solid #d0d0d0;
+    border-radius: 8px;
+    padding: 8px 10px;
+    min-width: 210px;
+    font-size: 13px;
 }
 
 .kd-table-wrap {
     flex: 1;
     border: 1px dashed #9a9a9a;
     border-radius: 14px;
-    overflow-x: scroll;
+    overflow-x: auto;
     overflow-y: auto;
-    scrollbar-gutter: stable;
+    max-width: 100%;
+    scrollbar-gutter: stable both-edges;
 }
 
 .kd-table {
@@ -649,6 +667,26 @@
     text-overflow: ellipsis;
 }
 
+
+.kd-table tbody tr.kd-row-checked td {
+    background: #fff6bf;
+}
+
+.kd-table td.kd-cell-selected {
+    background: #ffe799 !important;
+    outline: 1px solid #e0b100;
+}
+
+.kd-table td {
+    user-select: text;
+    cursor: text;
+}
+
+.kd-table td:first-child {
+    user-select: none;
+    cursor: default;
+}
+
 .kd-table thead th {
     position: sticky;
     top: 0;
@@ -666,8 +704,8 @@
 .sortable-column {
     user-select: none;
     position: relative;
-    padding-right: 24px !important;
-    overflow: hidden;
+    padding-right: 30px !important;
+    overflow: visible;
 }
 
 .column-head-content {
@@ -694,11 +732,13 @@
     border: 1px solid #626262;
     border-radius: 6px;
     background: #1f1f1f;
-    color: #f3f3f3;
+    color: #ffffff;
     font-size: 12px;
     line-height: 1;
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    z-index: 2;
     padding: 0;
     display: inline-flex;
     align-items: center;
@@ -831,6 +871,38 @@
     font-size: 14px;
 }
 
+
+
+.specification-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.specification-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.specification-grid label {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #5f5f5f;
+}
+
+.specification-grid textarea {
+    width: 100%;
+    border: 1px solid #d9d9d9;
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 14px;
+    font-family: inherit;
+    resize: vertical;
+    box-sizing: border-box;
+}
 
 .verification-group {
     display: flex;

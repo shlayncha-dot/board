@@ -421,7 +421,7 @@
 
 .dashboard-screen-main {
     flex: 1;
-    padding: 8px 12px 12px;
+    padding: 4px 12px 8px;
     overflow: hidden;
 }
 
@@ -429,17 +429,17 @@
     height: 100%;
     display: grid;
     grid-template-rows: 1fr 1fr;
-    gap: 8px;
+    gap: 4px;
 }
 
 .dashboard-section {
     background: #fff;
     border-radius: 18px;
-    padding: 8px;
+    padding: 4px 6px;
     box-shadow: 0 4px 15px rgba(0,0,0,0.03);
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
     min-height: 0;
 }
 
@@ -467,6 +467,12 @@
 
 .dashboard-table-wrap {
     overflow: auto;
+}
+
+.dashboard-table-wrap .dashboard-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
 }
 
 .dashboard-table {

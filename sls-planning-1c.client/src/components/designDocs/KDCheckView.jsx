@@ -1,22 +1,64 @@
 import React from 'react';
 
-const tableColumns = [
-    { key: 'code', label: 'Код детали' },
-    { key: 'name', label: 'Наименование' },
-    { key: 'material', label: 'Материал' },
-    { key: 'qty', label: 'Количество' }
-];
-
 const KDCheckView = ({
     verifyInputRef,
     sortedRows,
+    tableColumns,
     sortState,
     onToggleSort,
     checkedRows,
     onToggleRow,
     allVisibleChecked,
-    onToggleAllVisible
+    onToggleAllVisible,
+    filterOptions,
+    columnFilters,
+    onSetFilter,
+    columnWidths,
+    onSetColumnWidth
 }) => {
+    const [openFilterKey, setOpenFilterKey] = React.useState(null);
+    const resizeStateRef = React.useRef(null);
+
+    const beginResize = (event, columnKey) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        resizeStateRef.current = {
+            columnKey,
+            startX: event.clientX,
+            startWidth: columnWidths[columnKey] || 160
+        };
+
+        const onMouseMove = (moveEvent) => {
+            if (!resizeStateRef.current) {
+                return;
+            }
+
+            const nextWidth = Math.max(80, resizeStateRef.current.startWidth + (moveEvent.clientX - resizeStateRef.current.startX));
+            onSetColumnWidth(resizeStateRef.current.columnKey, nextWidth);
+        };
+
+        const onMouseUp = () => {
+            resizeStateRef.current = null;
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+        };
+
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup', onMouseUp);
+    };
+
+    const handleFilterToggle = (columnKey, value) => {
+        const existingValues = columnFilters[columnKey] || [];
+        const nextValues = existingValues.includes(value)
+            ? existingValues.filter((item) => item !== value)
+            : [...existingValues, value];
+
+        onSetFilter(columnKey, nextValues);
+    };
+
+    const isColumnFiltered = (columnKey) => Boolean(columnFilters[columnKey]?.length);
+
     return (
         <section className="design-docs-page design-docs-check-page">
             <div className="check-toolbar">
@@ -29,17 +71,51 @@ const KDCheckView = ({
 
             <div className="kd-table-wrap">
                 <table className="kd-table">
+                    <colgroup>
+                        <col style={{ width: '44px' }} />
+                        {tableColumns.map((column) => (
+                            <col key={column.key} style={{ width: `${columnWidths[column.key] || 160}px` }} />
+                        ))}
+                    </colgroup>
                     <thead>
                         <tr>
-                            <th>
+                            <th className="checkbox-column">
                                 <input type="checkbox" checked={allVisibleChecked} onChange={onToggleAllVisible} />
                             </th>
                             {tableColumns.map((column) => (
-                                <th key={column.key} onClick={() => onToggleSort(column.key)} className="sortable-column">
-                                    {column.label}
-                                    <span className="sort-indicator">
-                                        {sortState.key === column.key ? (sortState.direction === 'asc' ? '▲' : '▼') : '↕'}
-                                    </span>
+                                <th key={column.key} className="sortable-column" style={{ width: `${columnWidths[column.key] || 160}px` }}>
+                                    <div className="column-head-content" onClick={() => onToggleSort(column.key)}>
+                                        {column.label}
+                                        <span className="sort-indicator">
+                                            {sortState.key === column.key ? (sortState.direction === 'asc' ? '▲' : '▼') : '↕'}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            className={`filter-trigger ${isColumnFiltered(column.key) ? 'active' : ''}`}
+                                            aria-label={`Фильтр столбца ${column.label}`}
+                                            onClick={(event) => {
+                                                event.stopPropagation();
+                                                setOpenFilterKey((prevState) => (prevState === column.key ? null : column.key));
+                                            }}
+                                        >▾</button>
+                                    </div>
+                                    {openFilterKey === column.key && (
+                                        <div className="filter-popover" onClick={(event) => event.stopPropagation()}>
+                                            <button type="button" onClick={() => onSetFilter(column.key, filterOptions[column.key] || [])}>Выбрать все</button>
+                                            <button type="button" onClick={() => onSetFilter(column.key, [])}>Сбросить</button>
+                                            {(filterOptions[column.key] || []).map((value) => (
+                                                <label key={value}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={(columnFilters[column.key] || []).includes(value)}
+                                                        onChange={() => handleFilterToggle(column.key, value)}
+                                                    />
+                                                    {value}
+                                                </label>
+                                            ))}
+                                        </div>
+                                    )}
+                                    <div className="resize-handle" onMouseDown={(event) => beginResize(event, column.key)} />
                                 </th>
                             ))}
                         </tr>

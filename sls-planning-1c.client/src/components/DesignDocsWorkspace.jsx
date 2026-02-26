@@ -128,11 +128,40 @@ const DesignDocsWorkspace = ({ activeSubItem }) => {
         const options = {};
 
         tableColumns.forEach((column) => {
-            options[column.key] = [...new Set(tableRows.map((row) => String(row[column.key] ?? '')))];
+            const normalizedSearch = searchValue.trim().toLowerCase();
+            const availableValues = tableRows
+                .filter((row) => {
+                    const passedOtherColumnFilters = tableColumns.every((otherColumn) => {
+                        if (otherColumn.key === column.key) {
+                            return true;
+                        }
+
+                        const selectedValues = columnFilters[otherColumn.key];
+
+                        if (!selectedValues || selectedValues.length === 0) {
+                            return true;
+                        }
+
+                        return selectedValues.includes(String(row[otherColumn.key] ?? ''));
+                    });
+
+                    if (!passedOtherColumnFilters) {
+                        return false;
+                    }
+
+                    if (!normalizedSearch) {
+                        return true;
+                    }
+
+                    return tableColumns.some((searchColumn) => String(row[searchColumn.key] ?? '').toLowerCase().includes(normalizedSearch));
+                })
+                .map((row) => String(row[column.key] ?? ''));
+
+            options[column.key] = [...new Set(availableValues)];
         });
 
         return options;
-    }, [tableColumns, tableRows]);
+    }, [columnFilters, searchValue, tableColumns, tableRows]);
 
     const visibleRowIds = useMemo(() => sortedRows.map((row) => row.id), [sortedRows]);
     const allVisibleChecked = visibleRowIds.length > 0 && visibleRowIds.every((id) => checkedRows[id]);

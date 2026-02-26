@@ -1,6 +1,8 @@
 import React from 'react';
 
 const MIN_COLUMN_WIDTH = 48;
+const VIRTUAL_ROW_HEIGHT = 40;
+const VIRTUAL_OVERSCAN = 8;
 
 const KDTableRow = React.memo(({
     row,
@@ -60,6 +62,11 @@ const KDCheckView = ({
     const filterPopoverRef = React.useRef(null);
     const [localColumnWidths, setLocalColumnWidths] = React.useState(columnWidths);
     const localColumnWidthsRef = React.useRef(columnWidths);
+    const tableWrapRef = React.useRef(null);
+    const [virtualState, setVirtualState] = React.useState({
+        containerHeight: 400,
+        scrollTop: 0
+    });
 
     React.useEffect(() => {
         setLocalColumnWidths(columnWidths);
@@ -82,8 +89,67 @@ const KDCheckView = ({
         setSelectedCell({ rowId, columnKey });
     }, []);
 
+    React.useEffect(() => {
+        const element = tableWrapRef.current;
+
+        if (!element) {
+            return undefined;
+        }
+
+        const updateContainerHeight = () => {
+            setVirtualState((prevState) => {
+                if (prevState.containerHeight === element.clientHeight) {
+                    return prevState;
+                }
+
+                return {
+                    ...prevState,
+                    containerHeight: element.clientHeight
+                };
+            });
+        };
+
+        updateContainerHeight();
+
+        const resizeObserver = new ResizeObserver(updateContainerHeight);
+        resizeObserver.observe(element);
+
+        return () => {
+            resizeObserver.disconnect();
+        };
+    }, []);
+
+    const handleTableScroll = React.useCallback((event) => {
+        const nextScrollTop = event.currentTarget.scrollTop;
+
+        setVirtualState((prevState) => {
+            if (prevState.scrollTop === nextScrollTop) {
+                return prevState;
+            }
+
+            return {
+                ...prevState,
+                scrollTop: nextScrollTop
+            };
+        });
+    }, []);
+
+    const { topSpacerHeight, bottomSpacerHeight, visibleRows } = React.useMemo(() => {
+        const totalRows = sortedRows.length;
+        const visibleCount = Math.max(1, Math.ceil(virtualState.containerHeight / VIRTUAL_ROW_HEIGHT));
+        const firstVisible = Math.max(0, Math.floor(virtualState.scrollTop / VIRTUAL_ROW_HEIGHT));
+        const nextStartIndex = Math.max(0, firstVisible - VIRTUAL_OVERSCAN);
+        const nextEndIndex = Math.min(totalRows, firstVisible + visibleCount + VIRTUAL_OVERSCAN);
+
+        return {
+            topSpacerHeight: nextStartIndex * VIRTUAL_ROW_HEIGHT,
+            bottomSpacerHeight: Math.max(0, (totalRows - nextEndIndex) * VIRTUAL_ROW_HEIGHT),
+            visibleRows: sortedRows.slice(nextStartIndex, nextEndIndex)
+        };
+    }, [sortedRows, virtualState.containerHeight, virtualState.scrollTop]);
+
     const tableBodyRows = React.useMemo(() => (
-        sortedRows.map((row) => (
+        visibleRows.map((row) => (
             <KDTableRow
                 key={row.id}
                 row={row}
@@ -94,7 +160,7 @@ const KDCheckView = ({
                 onSelectCell={handleSelectCell}
             />
         ))
-    ), [checkedRows, handleSelectCell, onToggleRow, selectedCell, sortedRows, tableColumns]);
+    ), [checkedRows, handleSelectCell, onToggleRow, selectedCell, tableColumns, visibleRows]);
 
     const closeFilterPopover = React.useCallback(() => {
         setOpenFilterKey(null);
@@ -256,7 +322,7 @@ const KDCheckView = ({
                 </label>
             </div>
 
-            <div className="kd-table-wrap">
+            <div className="kd-table-wrap" ref={tableWrapRef} onScroll={handleTableScroll}>
                 <table className="kd-table" style={{ width: tablePixelWidth, minWidth: '100%' }}>
                     <colgroup>
                         <col style={{ width: '44px' }} />
@@ -325,7 +391,19 @@ const KDCheckView = ({
                             ))}
                         </tr>
                     </thead>
-                    <tbody>{tableBodyRows}</tbody>
+                    <tbody>
+                        {topSpacerHeight > 0 && (
+                            <tr className="kd-virtual-spacer" aria-hidden="true">
+                                <td colSpan={tableColumns.length + 1} style={{ height: `${topSpacerHeight}px` }} />
+                            </tr>
+                        )}
+                        {tableBodyRows}
+                        {bottomSpacerHeight > 0 && (
+                            <tr className="kd-virtual-spacer" aria-hidden="true">
+                                <td colSpan={tableColumns.length + 1} style={{ height: `${bottomSpacerHeight}px` }} />
+                            </tr>
+                        )}
+                    </tbody>
                 </table>
             </div>
         </section>

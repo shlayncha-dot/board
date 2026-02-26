@@ -271,6 +271,7 @@
     background: white;
     border-radius: 24px;
     display: flex;
+    min-width: 0;
     align-items: center;
     justify-content: center;
     box-shadow: 0 4px 15px rgba(0,0,0,0.03);
@@ -529,6 +530,7 @@
 
 .design-docs-subview.active {
     display: flex;
+    min-width: 0;
 }
 
 .spec-upload-layout {
@@ -656,7 +658,6 @@
     table-layout: fixed;
 }
 
-.kd-table th,
 .kd-table td {
     padding: 10px;
     border-right: 1px dashed #9a9a9a;
@@ -667,6 +668,15 @@
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.kd-table th {
+    padding: 10px;
+    border-right: 1px dashed #9a9a9a;
+    border-bottom: 1px dashed #9a9a9a;
+    text-align: left;
+    font-size: 13px;
+    white-space: nowrap;
 }
 
 
@@ -707,6 +717,10 @@
     user-select: none;
     position: relative;
     padding-right: 30px !important;
+    overflow: visible;
+}
+
+.kd-table th.sortable-column {
     overflow: visible;
 }
 
@@ -837,6 +851,16 @@
     text-align: center;
     padding-left: 0;
     padding-right: 0;
+}
+
+.kd-table tbody tr {
+    height: 40px;
+}
+
+.kd-virtual-spacer td {
+    padding: 0;
+    border-bottom: none;
+    height: auto;
 }
 
 .design-docs-settings-page {

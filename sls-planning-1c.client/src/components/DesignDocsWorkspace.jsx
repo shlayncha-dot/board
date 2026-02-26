@@ -299,54 +299,54 @@ const DesignDocsWorkspace = ({ activeSubItem }) => {
         setVerificationParams(savedVerificationParams.map((row) => ({ ...row })));
     };
 
-    if (activeSubItem === 0) {
-        return (
-            <SpecificationUploadView
-                productName={productName}
-                onProductNameChange={setProductName}
-                specName={specName}
-                onSpecNameChange={setSpecName}
-                uploadFile={uploadFile}
-                uploadInputRef={uploadInputRef}
-                onUploadFileChange={setUploadFile}
-            />
-        );
-    }
-
-    if (activeSubItem === 1) {
-        return (
-            <KDCheckView
-                verifyInputRef={verifyInputRef}
-                sortedRows={sortedRows}
-                tableColumns={tableColumns}
-                sortState={sortState}
-                onToggleSort={toggleSort}
-                checkedRows={checkedRows}
-                onToggleRow={toggleRow}
-                allVisibleChecked={allVisibleChecked}
-                onToggleAllVisible={toggleAllVisible}
-                filterOptions={filterOptions}
-                columnFilters={columnFilters}
-                onSetFilter={setFilter}
-                columnWidths={columnWidths}
-                onSetColumnWidth={setColumnWidth}
-                onExcelUpload={handleExcelUpload}
-            />
-        );
-    }
-
     return (
-        <DesignDocsSettingsView
-            pdfPath={pdfPath}
-            onPdfPathChange={setPdfPath}
-            onBrowsePdfFolder={handleBrowsePdfFolder}
-            pdfFolderInputRef={pdfFolderInputRef}
-            onPdfFolderFallbackChange={handlePdfFolderFallback}
-            verificationParams={verificationParams}
-            onVerificationParamChange={handleVerificationParamChange}
-            onSave={handleSavePdfPath}
-            onCancel={handleCancelPdfPath}
-        />
+        <>
+            <div className={`design-docs-subview ${activeSubItem === 0 ? 'active' : ''}`}>
+                <SpecificationUploadView
+                    productName={productName}
+                    onProductNameChange={setProductName}
+                    specName={specName}
+                    onSpecNameChange={setSpecName}
+                    uploadFile={uploadFile}
+                    uploadInputRef={uploadInputRef}
+                    onUploadFileChange={setUploadFile}
+                />
+            </div>
+
+            <div className={`design-docs-subview ${activeSubItem === 1 ? 'active' : ''}`}>
+                <KDCheckView
+                    verifyInputRef={verifyInputRef}
+                    sortedRows={sortedRows}
+                    tableColumns={tableColumns}
+                    sortState={sortState}
+                    onToggleSort={toggleSort}
+                    checkedRows={checkedRows}
+                    onToggleRow={toggleRow}
+                    allVisibleChecked={allVisibleChecked}
+                    onToggleAllVisible={toggleAllVisible}
+                    filterOptions={filterOptions}
+                    columnFilters={columnFilters}
+                    onSetFilter={setFilter}
+                    columnWidths={columnWidths}
+                    onSetColumnWidth={setColumnWidth}
+                    onExcelUpload={handleExcelUpload}
+                />
+            </div>
+
+            <div className={`design-docs-subview ${activeSubItem !== 0 && activeSubItem !== 1 ? 'active' : ''}`}>
+                <DesignDocsSettingsView
+                    pdfPath={pdfPath}
+                    onPdfPathChange={setPdfPath}
+                    onBrowsePdfFolder={handleBrowsePdfFolder}
+                    pdfFolderInputRef={pdfFolderInputRef}
+                    onPdfFolderFallbackChange={handlePdfFolderFallback}
+                    verificationParams={verificationParams}
+                    onVerificationParamChange={handleVerificationParamChange}
+                    onSave={handleSavePdfPath}
+                    onCancel={handleCancelPdfPath}
+                />
+            </div>
+        </>
     );
 };
 

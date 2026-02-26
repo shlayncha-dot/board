@@ -624,8 +624,9 @@
     flex: 1;
     border: 1px dashed #9a9a9a;
     border-radius: 14px;
-    overflow-x: auto;
+    overflow-x: scroll;
     overflow-y: auto;
+    scrollbar-gutter: stable;
 }
 
 .kd-table {
@@ -643,6 +644,7 @@
     text-align: left;
     font-size: 13px;
     white-space: nowrap;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
 }
@@ -665,6 +667,7 @@
     user-select: none;
     position: relative;
     padding-right: 24px !important;
+    overflow: hidden;
 }
 
 .column-head-content {
@@ -672,6 +675,13 @@
     align-items: center;
     gap: 6px;
     cursor: pointer;
+    min-width: 0;
+}
+
+.column-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .sort-indicator {

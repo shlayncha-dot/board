@@ -47,6 +47,18 @@ const KDCheckView = ({
         localColumnWidthsRef.current = columnWidths;
     }, [columnWidths]);
 
+    const tableBodyRows = React.useMemo(() => (
+        sortedRows.map((row) => (
+            <KDTableRow
+                key={row.id}
+                row={row}
+                tableColumns={tableColumns}
+                isChecked={Boolean(checkedRows[row.id])}
+                onToggleRow={onToggleRow}
+            />
+        ))
+    ), [checkedRows, onToggleRow, sortedRows, tableColumns]);
+
     const closeFilterPopover = React.useCallback(() => {
         setOpenFilterKey(null);
         setPendingFilters({});
@@ -203,7 +215,7 @@ const KDCheckView = ({
                             {tableColumns.map((column) => (
                                 <th key={column.key} className="sortable-column" style={{ width: `${localColumnWidths[column.key] || 160}px` }}>
                                     <div className="column-head-content" onClick={() => onToggleSort(column.key)}>
-                                        {column.label}
+                                        <span className="column-title">{column.label}</span>
                                         <span className="sort-indicator">
                                             {sortState.key === column.key ? (sortState.direction === 'asc' ? '▲' : '▼') : '↕'}
                                         </span>
@@ -254,17 +266,7 @@ const KDCheckView = ({
                             ))}
                         </tr>
                     </thead>
-                    <tbody>
-                        {sortedRows.map((row) => (
-                            <KDTableRow
-                                key={row.id}
-                                row={row}
-                                tableColumns={tableColumns}
-                                isChecked={Boolean(checkedRows[row.id])}
-                                onToggleRow={onToggleRow}
-                            />
-                        ))}
-                    </tbody>
+                    <tbody>{tableBodyRows}</tbody>
                 </table>
             </div>
         </section>

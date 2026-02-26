@@ -91,7 +91,6 @@ const DesignDocsWorkspace = ({ activeSubItem }) => {
 
     const [tableColumns, setTableColumns] = useState(defaultTableColumns);
     const [tableRows, setTableRows] = useState(sampleSpecs);
-    const [sortState, setSortState] = useState({ key: 'code', direction: 'asc' });
     const [checkedRows, setCheckedRows] = useState({});
     const [columnFilters, setColumnFilters] = useState({});
     const [columnWidths, setColumnWidths] = useState(defaultColumnWidths);
@@ -123,29 +122,7 @@ const DesignDocsWorkspace = ({ activeSubItem }) => {
         });
     }, [columnFilters, searchValue, tableColumns, tableRows]);
 
-    const sortedRows = useMemo(() => {
-        const rows = [...filteredRows];
-        const { key, direction } = sortState;
-
-        if (!key || !tableColumns.some((column) => column.key === key)) {
-            return rows;
-        }
-
-        const directionFactor = direction === 'asc' ? 1 : -1;
-
-        rows.sort((firstRow, secondRow) => {
-            const firstValue = String(firstRow[key] ?? '');
-            const secondValue = String(secondRow[key] ?? '');
-
-            if (firstValue === secondValue) {
-                return 0;
-            }
-
-            return firstValue.localeCompare(secondValue, 'ru', { numeric: true }) * directionFactor;
-        });
-
-        return rows;
-    }, [filteredRows, sortState, tableColumns]);
+    const sortedRows = useMemo(() => [...filteredRows], [filteredRows]);
 
     const filterOptions = useMemo(() => {
         const options = {};
@@ -159,19 +136,6 @@ const DesignDocsWorkspace = ({ activeSubItem }) => {
 
     const visibleRowIds = useMemo(() => sortedRows.map((row) => row.id), [sortedRows]);
     const allVisibleChecked = visibleRowIds.length > 0 && visibleRowIds.every((id) => checkedRows[id]);
-
-    const toggleSort = useCallback((key) => {
-        setSortState((prevState) => {
-            if (prevState.key === key) {
-                return {
-                    key,
-                    direction: prevState.direction === 'asc' ? 'desc' : 'asc'
-                };
-            }
-
-            return { key, direction: 'asc' };
-        });
-    }, []);
 
     const toggleRow = useCallback((rowId) => {
         setCheckedRows((prevState) => ({
@@ -244,7 +208,6 @@ const DesignDocsWorkspace = ({ activeSubItem }) => {
 
         setTableColumns(parsedColumns);
         setTableRows(parsedRows);
-        setSortState({ key: parsedColumns[0]?.key || '', direction: 'asc' });
         setCheckedRows({});
         setColumnFilters({});
         setColumnWidths(nextWidths);
@@ -352,8 +315,6 @@ const DesignDocsWorkspace = ({ activeSubItem }) => {
                     verifyInputRef={verifyInputRef}
                     sortedRows={sortedRows}
                     tableColumns={tableColumns}
-                    sortState={sortState}
-                    onToggleSort={toggleSort}
                     checkedRows={checkedRows}
                     onToggleRow={toggleRow}
                     allVisibleChecked={allVisibleChecked}

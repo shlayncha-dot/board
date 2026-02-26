@@ -639,9 +639,10 @@
 
 .kd-table-wrap {
     flex: 1;
+    width: 100%;
     border: 1px dashed #9a9a9a;
     border-radius: 14px;
-    overflow-x: scroll;
+    overflow-x: auto;
     overflow-y: auto;
     max-width: 100%;
     min-width: 0;

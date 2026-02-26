@@ -39,8 +39,6 @@ const KDCheckView = ({
     verifyInputRef,
     sortedRows,
     tableColumns,
-    sortState,
-    onToggleSort,
     checkedRows,
     onToggleRow,
     allVisibleChecked,
@@ -273,11 +271,8 @@ const KDCheckView = ({
                             </th>
                             {tableColumns.map((column) => (
                                 <th key={column.key} className="sortable-column" style={{ width: `${localColumnWidths[column.key] || 160}px` }}>
-                                    <div className="column-head-content" onClick={() => onToggleSort(column.key)}>
+                                    <div className="column-head-content">
                                         <span className="column-title">{column.label}</span>
-                                        <span className="sort-indicator">
-                                            {sortState.key === column.key ? (sortState.direction === 'asc' ? '▲' : '▼') : '↕'}
-                                        </span>
                                         <button
                                             type="button"
                                             className={`filter-trigger ${isColumnFiltered(column.key) ? 'active' : ''}`}
@@ -291,7 +286,7 @@ const KDCheckView = ({
                                                 event.stopPropagation();
                                                 handleFilterOpen(column.key);
                                             }}
-                                        >⛃</button>
+                                        >⏷</button>
                                     </div>
                                     {openFilterKey === column.key && (
                                         <div className="filter-popover" ref={filterPopoverRef} onClick={(event) => event.stopPropagation()}>

@@ -14,6 +14,7 @@ const DashboardSection = ({ title, lang }) => {
                     <table className="dashboard-table">
                         <thead>
                             <tr>
+                                <th className="dashboard-row-number-col">№</th>
                                 {tableHeaderKeys.map((headerKey) => (
                                     <th key={headerKey}>{t(lang, headerKey)}</th>
                                 ))}
@@ -22,13 +23,10 @@ const DashboardSection = ({ title, lang }) => {
                         <tbody>
                             {Array.from({ length: minVisibleRows }, (_, rowIndex) => (
                                 <tr key={`empty-row-${rowIndex}`}>
-                                    {rowIndex === 0 ? (
-                                        <td colSpan={tableHeaderKeys.length} className="dashboard-empty-row">{t(lang, 'dashboard.noData')}</td>
-                                    ) : (
-                                        tableHeaderKeys.map((headerKey) => (
-                                            <td key={`${headerKey}-${rowIndex}`} className="dashboard-placeholder-cell" aria-hidden="true">&nbsp;</td>
-                                        ))
-                                    )}
+                                    <td className="dashboard-row-number-col">{rowIndex + 1}</td>
+                                    {tableHeaderKeys.map((headerKey) => (
+                                        <td key={`${headerKey}-${rowIndex}`} className="dashboard-placeholder-cell" aria-hidden="true">&nbsp;</td>
+                                    ))}
                                 </tr>
                             ))}
                         </tbody>

@@ -2,6 +2,7 @@ import React from 'react';
 import { t } from '../config/translations';
 
 const tableHeaderKeys = ['dashboard.order', 'dashboard.status', 'dashboard.section', 'dashboard.deadline'];
+const minVisibleRows = 10;
 
 const DashboardSection = ({ title, lang }) => {
     return (
@@ -19,9 +20,17 @@ const DashboardSection = ({ title, lang }) => {
                             </tr>
                         </thead>
                         <tbody>
-                            <tr>
-                                <td colSpan={tableHeaderKeys.length} className="dashboard-empty-row">{t(lang, 'dashboard.noData')}</td>
-                            </tr>
+                            {Array.from({ length: minVisibleRows }, (_, rowIndex) => (
+                                <tr key={`empty-row-${rowIndex}`}>
+                                    {rowIndex === 0 ? (
+                                        <td colSpan={tableHeaderKeys.length} className="dashboard-empty-row">{t(lang, 'dashboard.noData')}</td>
+                                    ) : (
+                                        tableHeaderKeys.map((headerKey) => (
+                                            <td key={`${headerKey}-${rowIndex}`} className="dashboard-placeholder-cell" aria-hidden="true">&nbsp;</td>
+                                        ))
+                                    )}
+                                </tr>
+                            ))}
                         </tbody>
                     </table>
                 </div>

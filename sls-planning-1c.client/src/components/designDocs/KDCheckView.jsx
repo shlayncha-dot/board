@@ -1,5 +1,7 @@
 import React from 'react';
 
+const MIN_COLUMN_WIDTH = 40;
+
 const KDTableRow = React.memo(({ row, tableColumns, isChecked, onToggleRow }) => (
     <tr>
         <td>
@@ -83,7 +85,7 @@ const KDCheckView = ({
                 return;
             }
 
-            const nextWidth = Math.max(80, resizeStateRef.current.startWidth + (moveEvent.clientX - resizeStateRef.current.startX));
+            const nextWidth = Math.max(MIN_COLUMN_WIDTH, resizeStateRef.current.startWidth + (moveEvent.clientX - resizeStateRef.current.startX));
 
             if (resizeRafRef.current) {
                 return;
@@ -217,28 +219,30 @@ const KDCheckView = ({
                                     </div>
                                     {openFilterKey === column.key && (
                                         <div className="filter-popover" ref={filterPopoverRef} onClick={(event) => event.stopPropagation()}>
-                                            <button type="button" onClick={() => setPendingFilters((prevState) => ({
-                                                ...prevState,
-                                                [column.key]: [...(filterOptions[column.key] || [])]
-                                            }))}>
-                                                Выбрать все
-                                            </button>
-                                            <button type="button" onClick={() => setPendingFilters((prevState) => ({
-                                                ...prevState,
-                                                [column.key]: []
-                                            }))}>
-                                                Сбросить
-                                            </button>
-                                            {(filterOptions[column.key] || []).map((value) => (
-                                                <label key={value}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={getPendingValues(column.key).includes(value)}
-                                                        onChange={() => handleFilterToggle(column.key, value)}
-                                                    />
-                                                    {value}
-                                                </label>
-                                            ))}
+                                            <div className="filter-popover-content">
+                                                <button type="button" onClick={() => setPendingFilters((prevState) => ({
+                                                    ...prevState,
+                                                    [column.key]: [...(filterOptions[column.key] || [])]
+                                                }))}>
+                                                    Выбрать все
+                                                </button>
+                                                <button type="button" onClick={() => setPendingFilters((prevState) => ({
+                                                    ...prevState,
+                                                    [column.key]: []
+                                                }))}>
+                                                    Сбросить
+                                                </button>
+                                                {(filterOptions[column.key] || []).map((value) => (
+                                                    <label key={value}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={getPendingValues(column.key).includes(value)}
+                                                            onChange={() => handleFilterToggle(column.key, value)}
+                                                        />
+                                                        {value}
+                                                    </label>
+                                                ))}
+                                            </div>
                                             <div className="filter-popover-actions">
                                                 <button type="button" className="save-btn" onClick={() => handleFilterSave(column.key)}>Сохранить</button>
                                                 <button type="button" className="cancel-btn" onClick={handleFilterCancel}>Отмена</button>

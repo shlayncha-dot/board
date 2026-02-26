@@ -1,6 +1,15 @@
 import React from 'react';
 
-const HeaderBar = ({ lang, setLang, user, showUserMenu, setShowUserMenu, setIsSettingsOpen, setIsLoggedIn }) => {
+const HeaderBar = ({
+    lang,
+    setLang,
+    user,
+    showUserMenu,
+    setShowUserMenu,
+    onOpenAccountSettings,
+    onLogout,
+    isLoggedIn
+}) => {
     return (
         <header className="header">
             <div className="header-left">
@@ -29,22 +38,26 @@ const HeaderBar = ({ lang, setLang, user, showUserMenu, setShowUserMenu, setIsSe
                     <img src="/images/logo2.png" alt="SLS account logo" className="logo-img" />
                 </div>
 
-                <div className="auth-wrapper">
-                    <div className="auth-profile" onClick={() => setShowUserMenu(!showUserMenu)}>
-                        <div className="avatar"><img src={user.avatar} alt="avatar" /></div>
-                        <div className="user-info">
-                            <div className="user-name">{user.firstName} {user.lastName}</div>
-                            <div className="user-status">Premium Account</div>
-                        </div>
-                    </div>
+                {isLoggedIn && (
+                    <>
+                        <div className="auth-wrapper">
+                            <div className="auth-profile" onClick={() => setShowUserMenu(!showUserMenu)}>
+                                <div className="avatar"><img src={user.avatar} alt="avatar" /></div>
+                                <div className="user-info">
+                                    <div className="user-name">{user.firstName} {user.lastName}</div>
+                                    <div className="user-status">Premium Account</div>
+                                </div>
+                            </div>
 
-                    {showUserMenu && (
-                        <div className="dropdown-menu">
-                            <button onClick={() => { setIsSettingsOpen(true); setShowUserMenu(false); }}>Настройки</button>
-                            <button className="logout-btn" onClick={() => setIsLoggedIn(false)}>Выйти</button>
+                            {showUserMenu && (
+                                <div className="dropdown-menu">
+                                    <button onClick={onOpenAccountSettings}>Настройки аккаунта</button>
+                                    <button className="logout-btn" onClick={onLogout}>Выйти</button>
+                                </div>
+                            )}
                         </div>
-                    )}
-                </div>
+                    </>
+                )}
             </div>
         </header>
     );

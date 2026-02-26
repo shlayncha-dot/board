@@ -2,6 +2,7 @@ const translations = {
   RU: {
     'header.premiumAccount': 'Premium Account',
     'header.accountSettings': 'Настройки аккаунта',
+    'header.admin': 'Админ',
     'header.logout': 'Выйти',
 
     'auth.loginTitle': 'Вход в систему',
@@ -32,6 +33,8 @@ const translations = {
     'common.report': 'Отчет',
     'common.superMarket': 'SuperMarket',
     'common.inDevelopment': 'Контент раздела находится в разработке',
+
+    'admin.userSettings': 'Настройки пользователей',
 
     'menu.designDocs': 'Конструкторская документация',
     'menu.technologist': 'Технолог',
@@ -70,6 +73,7 @@ const translations = {
   EN: {
     'header.premiumAccount': 'Premium Account',
     'header.accountSettings': 'Account settings',
+    'header.admin': 'Admin',
     'header.logout': 'Log out',
 
     'auth.loginTitle': 'Sign in',
@@ -100,6 +104,8 @@ const translations = {
     'common.report': 'Report',
     'common.superMarket': 'SuperMarket',
     'common.inDevelopment': 'Section content is under development',
+
+    'admin.userSettings': 'User settings',
 
     'menu.designDocs': 'Design documentation',
     'menu.technologist': 'Technologist',
@@ -138,6 +144,7 @@ const translations = {
   GE: {
     'header.premiumAccount': 'Premium Account',
     'header.accountSettings': 'ანგარიშის პარამეტრები',
+    'header.admin': 'ადმინი',
     'header.logout': 'გასვლა',
 
     'auth.loginTitle': 'სისტემაში შესვლა',
@@ -168,6 +175,8 @@ const translations = {
     'common.report': 'ანგარიში',
     'common.superMarket': 'SuperMarket',
     'common.inDevelopment': 'განყოფილების შინაარსი დამუშავების პროცესშია',
+
+    'admin.userSettings': 'მომხმარებლების პარამეტრები',
 
     'menu.designDocs': 'საკონსტრუქტორო დოკუმენტაცია',
     'menu.technologist': 'ტექნოლოგი',

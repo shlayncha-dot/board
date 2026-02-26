@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { t } from '../config/translations';
 
 const HeaderBar = ({
@@ -8,16 +8,47 @@ const HeaderBar = ({
     showUserMenu,
     setShowUserMenu,
     onOpenAccountSettings,
+    onOpenAdmin,
     onLogout,
     isLoggedIn
 }) => {
+    const [now, setNow] = useState(() => new Date());
+
+    useEffect(() => {
+        const timerId = setInterval(() => {
+            setNow(new Date());
+        }, 1000);
+
+        return () => clearInterval(timerId);
+    }, []);
+
+    const { dateText, timeText } = useMemo(() => {
+        const dateFormatter = new Intl.DateTimeFormat('ru-RU', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+
+        const timeFormatter = new Intl.DateTimeFormat('ru-RU', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+        });
+
+        return {
+            dateText: dateFormatter.format(now),
+            timeText: timeFormatter.format(now)
+        };
+    }, [now]);
+
     return (
         <header className="header">
             <div className="header-left">
                 <div className="logo-box">
                     <img src="/images/logo1.png" alt="SLS logo" className="logo-img" />
                 </div>
-                <div className="time-block">26.05.2026<br /><b>18:45:10</b></div>
+                <div className="time-block">{dateText}<br /><b>{timeText}</b></div>
             </div>
 
             <div className="center-title">SLS Planning</div>
@@ -53,6 +84,7 @@ const HeaderBar = ({
                             {showUserMenu && (
                                 <div className="dropdown-menu">
                                     <button onClick={onOpenAccountSettings}>{t(lang, 'header.accountSettings')}</button>
+                                    {user.isAdmin && <button onClick={onOpenAdmin}>{t(lang, 'header.admin')}</button>}
                                     <button className="logout-btn" onClick={onLogout}>{t(lang, 'header.logout')}</button>
                                 </div>
                             )}

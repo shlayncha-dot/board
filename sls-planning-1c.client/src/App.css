@@ -23,6 +23,8 @@
     padding: 0 30px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.05);
     z-index: 10;
+    margin: 12px 20px 0;
+    border-radius: 24px;
 }
 
 .header-left, .header-right {
@@ -66,6 +68,11 @@
     flex: 2;
     text-align: center;
     white-space: nowrap;
+}
+
+.time-block {
+    font-size: 14px;
+    line-height: 1.35;
 }
 
 /* АВТОРИЗАЦИЯ */

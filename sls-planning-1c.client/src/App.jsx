@@ -17,6 +17,7 @@ function App() {
     const [lang, setLang] = useState('RU');
     const [showUserMenu, setShowUserMenu] = useState(false);
     const [settingsContext, setSettingsContext] = useState('none');
+    const [activeAdminSubItem, setActiveAdminSubItem] = useState(0);
     const [savedLogin, setSavedLogin] = useState(() => {
         const data = localStorage.getItem(STORAGE_KEY);
 
@@ -38,7 +39,8 @@ function App() {
         lastName: 'Smith',
         phone: '+380 99 123 45 67',
         email: 'anna.smith@sls.com',
-        avatar: 'https://i.pravatar.cc/100?img=32'
+        avatar: 'https://i.pravatar.cc/100?img=32',
+        isAdmin: true
     });
 
     const isDashboardScreenMode = useMemo(() => {
@@ -66,8 +68,19 @@ function App() {
         setSettingsContext('none');
     };
 
+    const openAdminSubMenuItem = (_, index) => {
+        setActiveAdminSubItem(index);
+        setSettingsContext('admin');
+    };
+
     const openAccountSettings = () => {
         setSettingsContext('account');
+        setShowUserMenu(false);
+    };
+
+    const openAdminSettings = () => {
+        setSettingsContext('admin');
+        setActiveAdminSubItem(0);
         setShowUserMenu(false);
     };
 
@@ -101,6 +114,7 @@ function App() {
                     showUserMenu={false}
                     setShowUserMenu={setShowUserMenu}
                     onOpenAccountSettings={openAccountSettings}
+                    onOpenAdmin={openAdminSettings}
                     onLogout={logout}
                     isLoggedIn={false}
                 />
@@ -121,6 +135,7 @@ function App() {
                 showUserMenu={showUserMenu}
                 setShowUserMenu={setShowUserMenu}
                 onOpenAccountSettings={openAccountSettings}
+                onOpenAdmin={openAdminSettings}
                 onLogout={logout}
                 isLoggedIn={isLoggedIn}
             />
@@ -143,9 +158,9 @@ function App() {
                     <div className="workspace">
                         {settingsContext !== 'account' && (
                             <SubMenuSidebar
-                                currentSubMenu={currentSubMenu}
-                                activeSubItem={activeSubItem}
-                                onSubMenuClick={openSubMenuItem}
+                                currentSubMenu={settingsContext === 'admin' ? [t(lang, 'admin.userSettings')] : currentSubMenu}
+                                activeSubItem={settingsContext === 'admin' ? activeAdminSubItem : activeSubItem}
+                                onSubMenuClick={settingsContext === 'admin' ? openAdminSubMenuItem : openSubMenuItem}
                             />
                         )}
 
@@ -159,6 +174,7 @@ function App() {
                                 activeTab={activeTab}
                                 currentSubMenu={currentSubMenu}
                                 activeSubItem={activeSubItem}
+                                activeAdminSubItem={activeAdminSubItem}
                             />
                         </main>
                     </div>

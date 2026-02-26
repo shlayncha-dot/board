@@ -1,8 +1,9 @@
 import React from 'react';
+import { t } from '../config/translations';
 
-const tableHeaders = ['Наряд', 'Статус', 'Участок', 'Срок'];
+const tableHeaderKeys = ['dashboard.order', 'dashboard.status', 'dashboard.section', 'dashboard.deadline'];
 
-const DashboardSection = ({ title }) => {
+const DashboardSection = ({ title, lang }) => {
     return (
         <section className="dashboard-section">
             <h2 className="dashboard-section-title">{title}</h2>
@@ -12,32 +13,32 @@ const DashboardSection = ({ title }) => {
                     <table className="dashboard-table">
                         <thead>
                             <tr>
-                                {tableHeaders.map((header) => (
-                                    <th key={header}>{header}</th>
+                                {tableHeaderKeys.map((headerKey) => (
+                                    <th key={headerKey}>{t(lang, headerKey)}</th>
                                 ))}
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
-                                <td colSpan={tableHeaders.length} className="dashboard-empty-row">Нет данных</td>
+                                <td colSpan={tableHeaderKeys.length} className="dashboard-empty-row">{t(lang, 'dashboard.noData')}</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
 
                 <aside className="dashboard-stats">
-                    <h3>Statistics</h3>
+                    <h3>{t(lang, 'dashboard.stats')}</h3>
                 </aside>
             </div>
         </section>
     );
 };
 
-const DashboardWorkspace = () => {
+const DashboardWorkspace = ({ lang }) => {
     return (
         <div className="dashboard-workspace">
-            <DashboardSection title="Metalworking" />
-            <DashboardSection title="Assembly" />
+            <DashboardSection lang={lang} title={t(lang, 'dashboard.metalworking')} />
+            <DashboardSection lang={lang} title={t(lang, 'dashboard.assembly')} />
         </div>
     );
 };

@@ -1,20 +1,23 @@
 import React from 'react';
 import Settings from './Settings';
 import DashboardWorkspace from './DashboardWorkspace';
+import { t } from '../config/translations';
 
-const MainWorkspace = ({ settingsContext, user, setUser, closeAccountSettings, activeTab, currentSubMenu, activeSubItem }) => {
+const MainWorkspace = ({ lang, settingsContext, user, setUser, closeAccountSettings, activeTab, currentSubMenu, activeSubItem }) => {
     if (settingsContext === 'account') {
-        return <Settings user={user} setUser={setUser} setIsSettingsOpen={closeAccountSettings} />;
+        return <Settings lang={lang} user={user} setUser={setUser} setIsSettingsOpen={closeAccountSettings} />;
+    }
+
+    if (activeTab === 7) {
+        return <DashboardWorkspace lang={lang} />;
     }
 
     return (
         <div className="empty-state">
-            {activeTab === 7 ? (
-                <DashboardWorkspace />
-            ) : currentSubMenu.length > 0 ? (
+            {currentSubMenu.length > 0 ? (
                 <p>{currentSubMenu[activeSubItem]}</p>
             ) : (
-                <p>Контент раздела находится в разработке</p>
+                <p>{t(lang, 'common.inDevelopment')}</p>
             )}
         </div>
     );

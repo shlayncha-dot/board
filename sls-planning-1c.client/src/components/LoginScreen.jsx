@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import { t } from '../config/translations';
 
-const LoginScreen = ({ savedLogin, onLogin }) => {
+const LoginScreen = ({ lang, savedLogin, onLogin }) => {
     const [login, setLogin] = useState(savedLogin || '');
     const [password, setPassword] = useState('');
     const [rememberMe, setRememberMe] = useState(Boolean(savedLogin));
@@ -14,9 +15,9 @@ const LoginScreen = ({ savedLogin, onLogin }) => {
     return (
         <div className="login-screen">
             <form className="login-card login-form" onSubmit={handleSubmit}>
-                <h2>Вход в систему</h2>
+                <h2>{t(lang, 'auth.loginTitle')}</h2>
 
-                <label htmlFor="login-input">Логин</label>
+                <label htmlFor="login-input">{t(lang, 'auth.login')}</label>
                 <input
                     id="login-input"
                     type="text"
@@ -27,7 +28,7 @@ const LoginScreen = ({ savedLogin, onLogin }) => {
                     required
                 />
 
-                <label htmlFor="password-input">Пароль</label>
+                <label htmlFor="password-input">{t(lang, 'auth.password')}</label>
                 <input
                     id="password-input"
                     type="password"
@@ -45,10 +46,10 @@ const LoginScreen = ({ savedLogin, onLogin }) => {
                         checked={rememberMe}
                         onChange={(event) => setRememberMe(event.target.checked)}
                     />
-                    Запомнить меня
+                    {t(lang, 'auth.rememberMe')}
                 </label>
 
-                <button className="save-btn" type="submit">Войти</button>
+                <button className="save-btn" type="submit">{t(lang, 'auth.submit')}</button>
             </form>
         </div>
     );

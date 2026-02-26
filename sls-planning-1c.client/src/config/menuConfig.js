@@ -1,13 +1,46 @@
 export const menuConfig = [
-  { label: 'Конструкторская документация', subMenu: ['Загрузка спецификации', 'Проверка КД', 'Настройки'] },
-  { label: 'Технолог', subMenu: ['Маршрутные листы', 'Загрузка технологической спецификации', 'Настройки'] },
-  { label: 'Pilot Group', subMenu: ['Заказать деталь'] },
-  { label: 'Производство', subMenu: ['Остатки на складах', 'План наряд', 'Нормативная карта', 'Настройки', 'Изолятор брака', 'Отчет', 'SuperMarket'] },
-  { label: 'Сборка', subMenu: ['План наряд', 'Формирование сборки', 'Настройки', 'Смена', 'Отчет', 'SuperMarket'] },
-  { label: 'Мастер', subMenu: ['Выдать наряд', 'Статус по нарядам', 'Отчеты', 'Смена', 'Настройка', 'SuperMarket'] },
-  { label: 'Планирование', subMenu: ['План производства', 'Проекты'] },
-  { label: 'DashBoard', subMenu: [] },
-  { label: 'ОТК', subMenu: ['Выдать наряд', 'Отчет ОТК', 'SuperMarket', 'Изолятор брака'] },
-  { label: 'Склад', subMenu: ['Склад покраски', 'Склад Металла', 'Изолятор брака', 'Выпущенная продукция', 'Списание'] },
-  { label: 'Комплектовщик', subMenu: [] }
+  {
+    labelKey: 'menu.designDocs',
+    subMenuKeys: ['submenu.specUpload', 'submenu.kdCheck', 'common.settings']
+  },
+  {
+    labelKey: 'menu.technologist',
+    subMenuKeys: ['submenu.routeSheets', 'submenu.techSpecUpload', 'common.settings']
+  },
+  {
+    labelKey: 'menu.pilotGroup',
+    subMenuKeys: ['submenu.orderPart']
+  },
+  {
+    labelKey: 'menu.production',
+    subMenuKeys: ['submenu.stockBalance', 'submenu.workPlan', 'submenu.normCard', 'common.settings', 'submenu.defectIsolator', 'common.report', 'common.superMarket']
+  },
+  {
+    labelKey: 'menu.assembly',
+    subMenuKeys: ['submenu.workPlan', 'submenu.assemblyForming', 'common.settings', 'common.shift', 'common.report', 'common.superMarket']
+  },
+  {
+    labelKey: 'menu.master',
+    subMenuKeys: ['submenu.issueOrder', 'submenu.orderStatus', 'submenu.reports', 'common.shift', 'submenu.setup', 'common.superMarket']
+  },
+  {
+    labelKey: 'menu.planning',
+    subMenuKeys: ['submenu.productionPlan', 'submenu.projects']
+  },
+  {
+    labelKey: 'menu.dashboard',
+    subMenuKeys: []
+  },
+  {
+    labelKey: 'menu.qualityControl',
+    subMenuKeys: ['submenu.issueOrder', 'submenu.qualityReport', 'common.superMarket', 'submenu.defectIsolator']
+  },
+  {
+    labelKey: 'menu.warehouse',
+    subMenuKeys: ['submenu.paintWarehouse', 'submenu.metalWarehouse', 'submenu.defectIsolator', 'submenu.releasedProducts', 'submenu.writeOff']
+  },
+  {
+    labelKey: 'menu.kitting',
+    subMenuKeys: []
+  }
 ];

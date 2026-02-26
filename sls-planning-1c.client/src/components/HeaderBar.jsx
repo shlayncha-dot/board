@@ -1,4 +1,5 @@
 import React from 'react';
+import { t } from '../config/translations';
 
 const HeaderBar = ({
     lang,
@@ -45,14 +46,14 @@ const HeaderBar = ({
                                 <div className="avatar"><img src={user.avatar} alt="avatar" /></div>
                                 <div className="user-info">
                                     <div className="user-name">{user.firstName} {user.lastName}</div>
-                                    <div className="user-status">Premium Account</div>
+                                    <div className="user-status">{t(lang, 'header.premiumAccount')}</div>
                                 </div>
                             </div>
 
                             {showUserMenu && (
                                 <div className="dropdown-menu">
-                                    <button onClick={onOpenAccountSettings}>Настройки аккаунта</button>
-                                    <button className="logout-btn" onClick={onLogout}>Выйти</button>
+                                    <button onClick={onOpenAccountSettings}>{t(lang, 'header.accountSettings')}</button>
+                                    <button className="logout-btn" onClick={onLogout}>{t(lang, 'header.logout')}</button>
                                 </div>
                             )}
                         </div>

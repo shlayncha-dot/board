@@ -6,6 +6,7 @@ import SubMenuSidebar from './components/SubMenuSidebar';
 import MainWorkspace from './components/MainWorkspace';
 import DashboardWorkspace from './components/DashboardWorkspace';
 import { menuConfig } from './config/menuConfig';
+import { t } from './config/translations';
 
 const STORAGE_KEY = 'sls-auth-data';
 
@@ -45,8 +46,14 @@ function App() {
         return pathName === '/dashboard-screen';
     }, []);
 
-    const menuItems = useMemo(() => menuConfig.map((item) => item.label), []);
-    const currentSubMenu = menuConfig[activeTab].subMenu;
+    const translatedMenu = useMemo(() => {
+        return menuConfig.map((item) => ({
+            label: t(lang, item.labelKey),
+            subMenu: item.subMenuKeys.map((key) => t(lang, key))
+        }));
+    }, [lang]);
+
+    const currentSubMenu = translatedMenu[activeTab].subMenu;
 
     const openTab = (index) => {
         setActiveTab(index);
@@ -99,7 +106,7 @@ function App() {
                 />
 
                 <main className="dashboard-screen-main">
-                    <DashboardWorkspace />
+                    <DashboardWorkspace lang={lang} />
                 </main>
             </div>
         );
@@ -122,12 +129,12 @@ function App() {
                 <>
                     <nav className="top-nav-container">
                         <div className="top-nav-grid">
-                            {menuItems.map((item, index) => (
+                            {translatedMenu.map((item, index) => (
                                 <div key={index} className={`nav-column ${activeTab === index ? 'active' : ''}`} onClick={() => openTab(index)}>
                                     <div className="nav-circle">
-                                        <img src={`/images/menu/${index + 1}.png`} alt={item} className="menu-icon-img" />
+                                        <img src={`/images/menu/${index + 1}.png`} alt={item.label} className="menu-icon-img" />
                                     </div>
-                                    <span className="nav-label">{item}</span>
+                                    <span className="nav-label">{item.label}</span>
                                 </div>
                             ))}
                         </div>
@@ -144,6 +151,7 @@ function App() {
 
                         <main className={`main-display ${activeTab === 7 && settingsContext !== 'account' ? 'dashboard-mode' : ''}`}>
                             <MainWorkspace
+                                lang={lang}
                                 settingsContext={settingsContext}
                                 user={user}
                                 setUser={setUser}
@@ -156,7 +164,7 @@ function App() {
                     </div>
                 </>
             ) : (
-                <LoginScreen savedLogin={savedLogin} onLogin={login} />
+                <LoginScreen lang={lang} savedLogin={savedLogin} onLogin={login} />
             )}
         </div>
     );

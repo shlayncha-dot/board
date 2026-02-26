@@ -11,12 +11,61 @@ const sampleSpecs = [
     { id: 5, code: 'A-1005', name: 'Втулка', material: 'Латунь', qty: 6 }
 ];
 
-const tableColumns = [
+const defaultTableColumns = [
     { key: 'code', label: 'Код детали' },
     { key: 'name', label: 'Наименование' },
     { key: 'material', label: 'Материал' },
     { key: 'qty', label: 'Количество' }
 ];
+
+const defaultColumnWidths = {
+    code: 170,
+    name: 280,
+    material: 220,
+    qty: 140
+};
+
+const createVerificationParams = () => [
+    { type: 1, description: '', condition: '' },
+    { type: 2, description: '', condition: '' },
+    { type: 3, description: '', condition: '' },
+    { type: 4, description: '', condition: '' },
+    { type: 5, description: '', condition: '' }
+];
+
+const getColumnKey = (header, index) => {
+    const normalized = String(header || '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, '_')
+        .replace(/[^\p{L}\p{N}_]/gu, '');
+
+    return normalized ? `${normalized}_${index}` : `column_${index}`;
+};
+
+const ensureSheetJs = () => {
+    if (window.XLSX) {
+        return Promise.resolve(window.XLSX);
+    }
+
+    return new Promise((resolve, reject) => {
+        const existing = document.getElementById('sheetjs-cdn');
+
+        if (existing) {
+            existing.addEventListener('load', () => resolve(window.XLSX));
+            existing.addEventListener('error', () => reject(new Error('Не удалось загрузить SheetJS.')));
+            return;
+        }
+
+        const script = document.createElement('script');
+        script.id = 'sheetjs-cdn';
+        script.src = 'https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js';
+        script.async = true;
+        script.onload = () => resolve(window.XLSX);
+        script.onerror = () => reject(new Error('Не удалось загрузить SheetJS.'));
+        document.head.appendChild(script);
+    });
+};
 
 const DesignDocsWorkspace = ({ activeSubItem }) => {
     const uploadInputRef = useRef(null);
@@ -28,57 +77,61 @@ const DesignDocsWorkspace = ({ activeSubItem }) => {
     const [uploadFile, setUploadFile] = useState('');
     const [pdfPath, setPdfPath] = useState('C:/SLS/KD/PDF_DXF');
     const [savedPdfPath, setSavedPdfPath] = useState('C:/SLS/KD/PDF_DXF');
+    const [verificationParams, setVerificationParams] = useState(createVerificationParams);
+    const [savedVerificationParams, setSavedVerificationParams] = useState(createVerificationParams);
 
+    const [tableColumns, setTableColumns] = useState(defaultTableColumns);
+    const [tableRows, setTableRows] = useState(sampleSpecs);
     const [sortState, setSortState] = useState({ key: 'code', direction: 'asc' });
     const [checkedRows, setCheckedRows] = useState({});
     const [columnFilters, setColumnFilters] = useState({});
-    const [columnWidths, setColumnWidths] = useState({
-        code: 170,
-        name: 280,
-        material: 220,
-        qty: 140
-    });
+    const [columnWidths, setColumnWidths] = useState(defaultColumnWidths);
 
     const filteredRows = useMemo(() => {
-        return sampleSpecs.filter((row) => tableColumns.every((column) => {
+        return tableRows.filter((row) => tableColumns.every((column) => {
             const selectedValues = columnFilters[column.key];
 
             if (!selectedValues || selectedValues.length === 0) {
                 return true;
             }
 
-            return selectedValues.includes(String(row[column.key]));
+            return selectedValues.includes(String(row[column.key] ?? ''));
         }));
-    }, [columnFilters]);
+    }, [tableRows, tableColumns, columnFilters]);
 
     const sortedRows = useMemo(() => {
         const rows = [...filteredRows];
         const { key, direction } = sortState;
+
+        if (!key || !tableColumns.some((column) => column.key === key)) {
+            return rows;
+        }
+
         const directionFactor = direction === 'asc' ? 1 : -1;
 
         rows.sort((firstRow, secondRow) => {
-            const firstValue = firstRow[key];
-            const secondValue = secondRow[key];
+            const firstValue = String(firstRow[key] ?? '');
+            const secondValue = String(secondRow[key] ?? '');
 
             if (firstValue === secondValue) {
                 return 0;
             }
 
-            return firstValue > secondValue ? directionFactor : -directionFactor;
+            return firstValue.localeCompare(secondValue, 'ru', { numeric: true }) * directionFactor;
         });
 
         return rows;
-    }, [filteredRows, sortState]);
+    }, [filteredRows, sortState, tableColumns]);
 
     const filterOptions = useMemo(() => {
         const options = {};
 
         tableColumns.forEach((column) => {
-            options[column.key] = [...new Set(sampleSpecs.map((row) => String(row[column.key])))];
+            options[column.key] = [...new Set(tableRows.map((row) => String(row[column.key] ?? '')))];
         });
 
         return options;
-    }, []);
+    }, [tableColumns, tableRows]);
 
     const visibleRowIds = sortedRows.map((row) => row.id);
     const allVisibleChecked = visibleRowIds.length > 0 && visibleRowIds.every((id) => checkedRows[id]);
@@ -137,35 +190,109 @@ const DesignDocsWorkspace = ({ activeSubItem }) => {
         }));
     };
 
-    const handleBrowsePdfFolder = async () => {
-        if (window.showDirectoryPicker) {
-            try {
-                const directoryHandle = await window.showDirectoryPicker();
-                setPdfPath(directoryHandle.name);
-                return;
-            } catch {
-                return;
-            }
+    const applyExcelData = (sheetRows) => {
+        const [headerRow, ...bodyRows] = sheetRows;
+        const parsedColumns = headerRow.map((header, index) => ({
+            key: getColumnKey(header, index),
+            label: String(header || `Столбец ${index + 1}`).trim() || `Столбец ${index + 1}`
+        }));
+
+        const parsedRows = bodyRows
+            .filter((row) => row.some((cell) => String(cell || '').trim() !== ''))
+            .map((row, rowIndex) => {
+                const rowData = { id: rowIndex + 1 };
+
+                parsedColumns.forEach((column, columnIndex) => {
+                    rowData[column.key] = String(row[columnIndex] ?? '').trim();
+                });
+
+                return rowData;
+            });
+
+        const nextWidths = parsedColumns.reduce((acc, column) => {
+            acc[column.key] = 220;
+            return acc;
+        }, {});
+
+        setTableColumns(parsedColumns);
+        setTableRows(parsedRows);
+        setSortState({ key: parsedColumns[0]?.key || '', direction: 'asc' });
+        setCheckedRows({});
+        setColumnFilters({});
+        setColumnWidths(nextWidths);
+    };
+
+    const handleExcelUpload = async (event) => {
+        const file = event.target.files?.[0];
+
+        if (!file) {
+            return;
         }
 
+        try {
+            const XLSX = await ensureSheetJs();
+            const buffer = await file.arrayBuffer();
+            const workbook = XLSX.read(buffer, { type: 'array' });
+            const firstSheetName = workbook.SheetNames[0];
+            const firstSheet = workbook.Sheets[firstSheetName];
+            const sheetRows = XLSX.utils.sheet_to_json(firstSheet, { header: 1, blankrows: false, defval: '' });
+
+            if (!sheetRows.length || sheetRows[0].length === 0) {
+                return;
+            }
+
+            applyExcelData(sheetRows);
+        } catch {
+            alert('Не удалось прочитать Excel-файл. Проверьте формат .xls/.xlsx и повторите попытку.');
+        } finally {
+            event.target.value = '';
+        }
+    };
+
+    const handleBrowsePdfFolder = async () => {
         pdfFolderInputRef.current?.click();
     };
 
     const handlePdfFolderFallback = (event) => {
         const file = event.target.files?.[0];
-        const folderName = file?.webkitRelativePath?.split('/')[0] || '';
+        const relativePath = file?.webkitRelativePath || '';
+        const selectedFolderName = relativePath.split('/')[0] || '';
 
-        if (folderName) {
-            setPdfPath(folderName);
+        const absoluteFilePath = typeof file?.path === 'string' ? file.path.replace(/\\/g, '/') : '';
+        const relativeFilePath = relativePath ? `/${relativePath}` : '';
+        const fullPathFromFile = absoluteFilePath && relativeFilePath && absoluteFilePath.endsWith(relativeFilePath)
+            ? absoluteFilePath.slice(0, absoluteFilePath.length - relativeFilePath.length)
+            : '';
+
+        const inputValuePath = event.target.value
+            ? event.target.value.replace(/\\/g, '/').replace(/\/[^/]*$/, '')
+            : '';
+        const fallbackPath = inputValuePath && selectedFolderName ? `${inputValuePath}/${selectedFolderName}` : '';
+        const nextPath = fullPathFromFile || fallbackPath || selectedFolderName;
+
+        if (nextPath) {
+            setPdfPath(nextPath);
         }
+
+        event.target.value = '';
+    };
+
+    const handleVerificationParamChange = (index, field, value) => {
+        setVerificationParams((prevState) => prevState.map((row, rowIndex) => (
+            rowIndex === index
+                ? { ...row, [field]: value }
+                : row
+        )));
     };
 
     const handleSavePdfPath = () => {
         setSavedPdfPath(pdfPath);
+        setSavedVerificationParams(verificationParams.map((row) => ({ ...row })));
     };
 
     const handleCancelPdfPath = () => {
         setPdfPath(savedPdfPath);
+        setVerificationParams(savedVerificationParams.map((row) => ({ ...row })));
     };
 
     if (activeSubItem === 0) {
@@ -199,6 +326,7 @@ const DesignDocsWorkspace = ({ activeSubItem }) => {
                 onSetFilter={setFilter}
                 columnWidths={columnWidths}
                 onSetColumnWidth={setColumnWidth}
+                onExcelUpload={handleExcelUpload}
             />
         );
     }
@@ -210,6 +338,8 @@ const DesignDocsWorkspace = ({ activeSubItem }) => {
             onBrowsePdfFolder={handleBrowsePdfFolder}
             pdfFolderInputRef={pdfFolderInputRef}
             onPdfFolderFallbackChange={handlePdfFolderFallback}
+            verificationParams={verificationParams}
+            onVerificationParamChange={handleVerificationParamChange}
             onSave={handleSavePdfPath}
             onCancel={handleCancelPdfPath}
         />

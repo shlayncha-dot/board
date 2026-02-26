@@ -14,10 +14,36 @@ const KDCheckView = ({
     columnFilters,
     onSetFilter,
     columnWidths,
-    onSetColumnWidth
+    onSetColumnWidth,
+    onExcelUpload
 }) => {
     const [openFilterKey, setOpenFilterKey] = React.useState(null);
+    const [pendingFilters, setPendingFilters] = React.useState({});
     const resizeStateRef = React.useRef(null);
+    const filterPopoverRef = React.useRef(null);
+
+    const closeFilterPopover = React.useCallback(() => {
+        setOpenFilterKey(null);
+        setPendingFilters({});
+    }, []);
+
+    React.useEffect(() => {
+        if (!openFilterKey) {
+            return undefined;
+        }
+
+        const onDocumentPointerDown = (event) => {
+            if (!filterPopoverRef.current?.contains(event.target)) {
+                closeFilterPopover();
+            }
+        };
+
+        document.addEventListener('mousedown', onDocumentPointerDown);
+
+        return () => {
+            document.removeEventListener('mousedown', onDocumentPointerDown);
+        };
+    }, [closeFilterPopover, openFilterKey]);
 
     const beginResize = (event, columnKey) => {
         event.preventDefault();
@@ -48,13 +74,39 @@ const KDCheckView = ({
         window.addEventListener('mouseup', onMouseUp);
     };
 
+    const getPendingValues = (columnKey) => pendingFilters[columnKey] || [];
+
     const handleFilterToggle = (columnKey, value) => {
-        const existingValues = columnFilters[columnKey] || [];
+        const existingValues = getPendingValues(columnKey);
         const nextValues = existingValues.includes(value)
             ? existingValues.filter((item) => item !== value)
             : [...existingValues, value];
 
-        onSetFilter(columnKey, nextValues);
+        setPendingFilters((prevState) => ({
+            ...prevState,
+            [columnKey]: nextValues
+        }));
+    };
+
+    const handleFilterOpen = (columnKey) => {
+        if (openFilterKey === columnKey) {
+            closeFilterPopover();
+            return;
+        }
+
+        setPendingFilters({
+            [columnKey]: [...(columnFilters[columnKey] || [])]
+        });
+        setOpenFilterKey(columnKey);
+    };
+
+    const handleFilterSave = (columnKey) => {
+        onSetFilter(columnKey, getPendingValues(columnKey));
+        closeFilterPopover();
+    };
+
+    const handleFilterCancel = () => {
+        closeFilterPopover();
     };
 
     const isColumnFiltered = (columnKey) => Boolean(columnFilters[columnKey]?.length);
@@ -63,7 +115,13 @@ const KDCheckView = ({
         <section className="design-docs-page design-docs-check-page">
             <div className="check-toolbar">
                 <button type="button" onClick={() => verifyInputRef.current?.click()}>Загрузить Excel</button>
-                <input ref={verifyInputRef} type="file" accept=".xls,.xlsx" className="hidden-input" />
+                <input
+                    ref={verifyInputRef}
+                    type="file"
+                    accept=".xls,.xlsx"
+                    className="hidden-input"
+                    onChange={onExcelUpload}
+                />
                 <button type="button">Верификация</button>
                 <button type="button">Нейминг</button>
                 <button type="button">Общая проверка КД</button>
@@ -95,24 +153,38 @@ const KDCheckView = ({
                                             aria-label={`Фильтр столбца ${column.label}`}
                                             onClick={(event) => {
                                                 event.stopPropagation();
-                                                setOpenFilterKey((prevState) => (prevState === column.key ? null : column.key));
+                                                handleFilterOpen(column.key);
                                             }}
                                         >▾</button>
                                     </div>
                                     {openFilterKey === column.key && (
-                                        <div className="filter-popover" onClick={(event) => event.stopPropagation()}>
-                                            <button type="button" onClick={() => onSetFilter(column.key, filterOptions[column.key] || [])}>Выбрать все</button>
-                                            <button type="button" onClick={() => onSetFilter(column.key, [])}>Сбросить</button>
+                                        <div className="filter-popover" ref={filterPopoverRef} onClick={(event) => event.stopPropagation()}>
+                                            <button type="button" onClick={() => setPendingFilters((prevState) => ({
+                                                ...prevState,
+                                                [column.key]: [...(filterOptions[column.key] || [])]
+                                            }))}>
+                                                Выбрать все
+                                            </button>
+                                            <button type="button" onClick={() => setPendingFilters((prevState) => ({
+                                                ...prevState,
+                                                [column.key]: []
+                                            }))}>
+                                                Сбросить
+                                            </button>
                                             {(filterOptions[column.key] || []).map((value) => (
                                                 <label key={value}>
                                                     <input
                                                         type="checkbox"
-                                                        checked={(columnFilters[column.key] || []).includes(value)}
+                                                        checked={getPendingValues(column.key).includes(value)}
                                                         onChange={() => handleFilterToggle(column.key, value)}
                                                     />
                                                     {value}
                                                 </label>
                                             ))}
+                                            <div className="filter-popover-actions">
+                                                <button type="button" className="save-btn" onClick={() => handleFilterSave(column.key)}>Сохранить</button>
+                                                <button type="button" className="cancel-btn" onClick={handleFilterCancel}>Отмена</button>
+                                            </div>
                                         </div>
                                     )}
                                     <div className="resize-handle" onMouseDown={(event) => beginResize(event, column.key)} />
@@ -130,10 +202,9 @@ const KDCheckView = ({
                                         onChange={() => onToggleRow(row.id)}
                                     />
                                 </td>
-                                <td>{row.code}</td>
-                                <td>{row.name}</td>
-                                <td>{row.material}</td>
-                                <td>{row.qty}</td>
+                                {tableColumns.map((column) => (
+                                    <td key={`${row.id}-${column.key}`}>{row[column.key]}</td>
+                                ))}
                             </tr>
                         ))}
                     </tbody>

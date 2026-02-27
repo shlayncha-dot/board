@@ -51,7 +51,7 @@ const HeaderBar = ({
                 <div className="time-block">{dateText}<br /><b>{timeText}</b></div>
             </div>
 
-            <div className="center-title">SLS Planning v.2</div>
+            <div className="center-title">SLS planning v3</div>
 
             <div className="header-right">
                 <div className="lang-select">

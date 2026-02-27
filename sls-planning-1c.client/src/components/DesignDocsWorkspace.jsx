@@ -95,6 +95,7 @@ const DesignDocsWorkspace = ({ activeSubItem }) => {
     const [columnFilters, setColumnFilters] = useState({});
     const [columnWidths, setColumnWidths] = useState(defaultColumnWidths);
     const [searchValue, setSearchValue] = useState('');
+    const [verificationInProgress, setVerificationInProgress] = useState(false);
 
     const filteredRows = useMemo(() => {
         const normalizedSearch = searchValue.trim().toLowerCase();
@@ -298,6 +299,54 @@ const DesignDocsWorkspace = ({ activeSubItem }) => {
         event.target.value = '';
     };
 
+
+    const runVerification = useCallback(async () => {
+        setVerificationInProgress(true);
+
+        try {
+            const payload = {
+                rows: sortedRows.map((row) => ({
+                    rowId: String(row.id),
+                    values: tableColumns.reduce((acc, column) => {
+                        acc[column.label] = String(row[column.key] ?? '').trim();
+                        return acc;
+                    }, {})
+                })),
+                typeRules: verificationParams.map((rule) => ({
+                    type: rule.type,
+                    condition: rule.condition
+                }))
+            };
+
+            const response = await fetch('/api/verification/kd', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error('Ошибка запроса к серверу верификации.');
+            }
+
+            const result = await response.json();
+            const blocks = [result.dxf, result.pdf];
+            const summary = blocks
+                .map((block) => `${block.blockName}: ${block.message}`)
+                .join('\n');
+
+            const details = blocks
+                .flatMap((block) => block.issues.map((issue) => `${block.blockName} | ${issue.detailName} | ${issue.severity} | ${issue.paths.join(', ') || 'путь не найден'}`));
+
+            alert([summary, details.length ? '', 'Детали:', ...details].join('\n'));
+        } catch (error) {
+            alert(error instanceof Error ? error.message : 'Ошибка выполнения верификации.');
+        } finally {
+            setVerificationInProgress(false);
+        }
+    }, [sortedRows, tableColumns, verificationParams]);
+
     const handleVerificationParamChange = (index, field, value) => {
         setVerificationParams((prevState) => prevState.map((row, rowIndex) => (
             rowIndex === index
@@ -356,6 +405,8 @@ const DesignDocsWorkspace = ({ activeSubItem }) => {
                     onExcelUpload={handleExcelUpload}
                     searchValue={searchValue}
                     onSearchChange={setSearchValue}
+                    onRunVerification={runVerification}
+                    verificationInProgress={verificationInProgress}
                 />
             </div>
 

@@ -1,3 +1,6 @@
+using SLS_Planning_1C.Server.Features.FileIndexing;
+using SLS_Planning_1C.Server.Features.Verification;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -6,6 +9,8 @@ builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddSingleton<IFileIndexStore, FileIndexStore>();
+builder.Services.AddScoped<IVerificationService, VerificationService>();
 
 var app = builder.Build();
 

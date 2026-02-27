@@ -9,6 +9,13 @@ public interface IVerificationService
 
 public sealed class VerificationService : IVerificationService
 {
+    private static readonly HashSet<string> AllowedDxfTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "деталь",
+        "деталь_кон",
+        "деталь_св"
+    };
+
     private readonly IFileIndexStore _fileIndexStore;
 
     public VerificationService(IFileIndexStore fileIndexStore)
@@ -24,8 +31,9 @@ public sealed class VerificationService : IVerificationService
 
         var designationColumn = ResolveColumnKey(request.Rows, "обознач");
         var nameColumn = ResolveColumnKey(request.Rows, "наимен");
+        var typeColumn = ResolveColumnKey(request.Rows, "тип");
 
-        var dxfIssues = VerifyDxf(request.Rows, designationColumn, dxfFiles);
+        var dxfIssues = VerifyDxf(request.Rows, designationColumn, typeColumn, dxfFiles);
         var pdfIssues = VerifyPdf(request.Rows, designationColumn, nameColumn, request.TypeRules, pdfFiles);
 
         return new VerificationResponse
@@ -46,16 +54,25 @@ public sealed class VerificationService : IVerificationService
         };
     }
 
-    private static List<VerificationIssueDto> VerifyDxf(IReadOnlyList<VerifyRowDto> rows, string? designationColumn, IReadOnlyList<IndexedFileDto> dxfFiles)
+    private static List<VerificationIssueDto> VerifyDxf(
+        IReadOnlyList<VerifyRowDto> rows,
+        string? designationColumn,
+        string? typeColumn,
+        IReadOnlyList<IndexedFileDto> dxfFiles)
     {
         var issues = new List<VerificationIssueDto>();
-        if (designationColumn is null)
+        if (designationColumn is null || typeColumn is null)
         {
             return issues;
         }
 
         foreach (var row in rows)
         {
+            if (!row.Values.TryGetValue(typeColumn, out var detailType) || !IsAllowedDxfType(detailType))
+            {
+                continue;
+            }
+
             if (!row.Values.TryGetValue(designationColumn, out var detailName) || string.IsNullOrWhiteSpace(detailName))
             {
                 continue;
@@ -66,6 +83,12 @@ public sealed class VerificationService : IVerificationService
         }
 
         return issues;
+    }
+
+    private static bool IsAllowedDxfType(string detailType)
+    {
+        var normalized = detailType.Trim().ToLowerInvariant();
+        return AllowedDxfTypes.Contains(normalized);
     }
 
     private static List<VerificationIssueDto> VerifyPdf(

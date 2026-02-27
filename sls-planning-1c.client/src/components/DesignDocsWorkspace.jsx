@@ -98,6 +98,8 @@ const DesignDocsWorkspace = ({ activeSubItem }) => {
     const [columnWidths, setColumnWidths] = useState(defaultColumnWidths);
     const [searchValue, setSearchValue] = useState('');
     const [verificationInProgress, setVerificationInProgress] = useState(false);
+    const [verificationIssuesByRowId, setVerificationIssuesByRowId] = useState({});
+    const [verificationReport, setVerificationReport] = useState(null);
     const [namingCheckInProgress, setNamingCheckInProgress] = useState(false);
     const [namingIssuesByRowId, setNamingIssuesByRowId] = useState({});
     const [namingReport, setNamingReport] = useState(null);
@@ -254,6 +256,8 @@ const DesignDocsWorkspace = ({ activeSubItem }) => {
         setColumnFilters({});
         setColumnWidths(nextWidths);
         setSearchValue('');
+        setVerificationIssuesByRowId({});
+        setVerificationReport(null);
         setNamingIssuesByRowId({});
         setNamingReport(null);
     }, []);
@@ -346,17 +350,59 @@ const DesignDocsWorkspace = ({ activeSubItem }) => {
 
             const result = await response.json();
             const blocks = [result.dxf, result.pdf];
-            const summary = blocks
-                .map((block) => `${block.blockName}: ${block.message}`)
-                .join('\n');
+            const missingByBlock = {
+                DXF: [],
+                PDF: []
+            };
+            const duplicates = [];
+            const issuesByRowId = {};
 
-            const details = blocks
-                .flatMap((block) => block.issues.map((issue) => `${block.blockName} | ${issue.detailName} | ${issue.severity} | ${issue.paths.join(', ') || 'путь не найден'}`));
+            blocks.forEach((block) => {
+                block.issues.forEach((issue) => {
+                    const normalizedBlockName = String(block.blockName || '').toUpperCase();
+                    const issueSeverity = String(issue.severity || '').toLowerCase();
 
-            alert([
-                summary,
-                ...(details.length ? ['', 'Детали:', ...details] : [])
-            ].join('\n'));
+                    if (!issuesByRowId[issue.rowId]) {
+                        issuesByRowId[issue.rowId] = {
+                            dxf: null,
+                            pdf: null
+                        };
+                    }
+
+                    if (normalizedBlockName === 'DXF') {
+                        issuesByRowId[issue.rowId].dxf = issueSeverity;
+                    }
+
+                    if (normalizedBlockName === 'PDF') {
+                        issuesByRowId[issue.rowId].pdf = issueSeverity;
+                    }
+
+                    if (issueSeverity === 'missing') {
+                        if (normalizedBlockName === 'DXF') {
+                            missingByBlock.DXF.push(issue.detailName);
+                        }
+
+                        if (normalizedBlockName === 'PDF') {
+                            missingByBlock.PDF.push(issue.detailName);
+                        }
+                    }
+
+                    if (issueSeverity === 'duplicate') {
+                        duplicates.push({
+                            blockName: normalizedBlockName,
+                            detailName: issue.detailName,
+                            paths: issue.paths
+                        });
+                    }
+                });
+            });
+
+            setVerificationIssuesByRowId(issuesByRowId);
+            setVerificationReport({
+                isSuccess: Object.keys(issuesByRowId).length === 0,
+                missingByBlock,
+                duplicates
+            });
         } catch (error) {
             alert(error instanceof Error ? error.message : 'Ошибка выполнения верификации.');
         } finally {
@@ -438,6 +484,11 @@ const DesignDocsWorkspace = ({ activeSubItem }) => {
         return nameColumn?.key || null;
     }, [tableColumns]);
 
+    const designationTargetColumnKey = useMemo(() => {
+        const designationColumn = tableColumns.find((column) => column.label.toLowerCase().includes('обознач'));
+        return designationColumn?.key || null;
+    }, [tableColumns]);
+
     const handleVerificationParamChange = (index, field, value) => {
         setVerificationParams((prevState) => prevState.map((row, rowIndex) => (
             rowIndex === index
@@ -503,6 +554,10 @@ const DesignDocsWorkspace = ({ activeSubItem }) => {
                     namingIssuesByRowId={namingIssuesByRowId}
                     namingTargetColumnKey={namingTargetColumnKey}
                     namingReport={namingReport}
+                    verificationIssuesByRowId={verificationIssuesByRowId}
+                    verificationReport={verificationReport}
+                    onCloseVerificationReport={() => setVerificationReport(null)}
+                    designationTargetColumnKey={designationTargetColumnKey}
                 />
             </div>
 

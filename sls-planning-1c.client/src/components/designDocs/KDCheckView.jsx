@@ -12,7 +12,9 @@ const KDTableRow = React.memo(({
     selectedCell,
     onSelectCell,
     namingIssuesByRowId,
-    namingTargetColumnKey
+    namingTargetColumnKey,
+    verificationIssuesByRowId,
+    designationTargetColumnKey
 }) => (
     <tr className={isChecked ? 'kd-row-checked' : ''}>
         <td>
@@ -25,9 +27,18 @@ const KDTableRow = React.memo(({
         {tableColumns.map((column) => {
             const isSelectedCell = selectedCell?.rowId === row.id && selectedCell?.columnKey === column.key;
             const isNamingIssueCell = namingTargetColumnKey === column.key && Boolean(namingIssuesByRowId[row.id]);
+            const verificationIssue = verificationIssuesByRowId[row.id] || null;
+            const isDxfIssueCell = designationTargetColumnKey === column.key && Boolean(verificationIssue?.dxf);
+            const isPdfIssueCell = namingTargetColumnKey === column.key && Boolean(verificationIssue?.pdf);
+            const verificationSeverity = isDxfIssueCell
+                ? verificationIssue.dxf
+                : (isPdfIssueCell ? verificationIssue.pdf : null);
+
             const cellClassName = [
                 isSelectedCell ? 'kd-cell-selected' : '',
-                isNamingIssueCell ? 'kd-cell-naming-issue' : ''
+                isNamingIssueCell ? 'kd-cell-naming-issue' : '',
+                verificationSeverity === 'missing' ? 'kd-cell-verification-missing' : '',
+                verificationSeverity === 'duplicate' ? 'kd-cell-verification-duplicate' : ''
             ].filter(Boolean).join(' ');
 
             return (
@@ -66,7 +77,11 @@ const KDCheckView = ({
     namingCheckInProgress,
     namingIssuesByRowId,
     namingTargetColumnKey,
-    namingReport
+    namingReport,
+    verificationIssuesByRowId,
+    verificationReport,
+    onCloseVerificationReport,
+    designationTargetColumnKey
 }) => {
     const [openFilterKey, setOpenFilterKey] = React.useState(null);
     const [pendingFilters, setPendingFilters] = React.useState({});
@@ -174,9 +189,11 @@ const KDCheckView = ({
                 onSelectCell={handleSelectCell}
                 namingIssuesByRowId={namingIssuesByRowId}
                 namingTargetColumnKey={namingTargetColumnKey}
+                verificationIssuesByRowId={verificationIssuesByRowId}
+                designationTargetColumnKey={designationTargetColumnKey}
             />
         ))
-    ), [checkedRows, handleSelectCell, namingIssuesByRowId, namingTargetColumnKey, onToggleRow, selectedCell, tableColumns, visibleRows]);
+    ), [checkedRows, designationTargetColumnKey, handleSelectCell, namingIssuesByRowId, namingTargetColumnKey, onToggleRow, selectedCell, tableColumns, verificationIssuesByRowId, visibleRows]);
 
     const closeFilterPopover = React.useCallback(() => {
         setOpenFilterKey(null);
@@ -313,6 +330,32 @@ const KDCheckView = ({
         return `${allColumnsWidth}px`;
     }, [localColumnWidths, tableColumns]);
 
+    const copyVerificationReport = React.useCallback(async () => {
+        if (!verificationReport) {
+            return;
+        }
+
+        const lines = [];
+
+        if (verificationReport.isSuccess) {
+            lines.push('Все файлы DXF и PDF найдены');
+        } else {
+            lines.push('Не найдены следующие файлы:');
+            lines.push(`DXF: ${(verificationReport.missingByBlock.DXF || []).join(', ') || '—'}`);
+            lines.push(`PDF: ${(verificationReport.missingByBlock.PDF || []).join(', ') || '—'}`);
+
+            if (verificationReport.duplicates.length) {
+                lines.push('');
+                lines.push('Файлы которые повторяются:');
+                verificationReport.duplicates.forEach((duplicate) => {
+                    lines.push(`${duplicate.blockName}: ${duplicate.detailName} — ${(duplicate.paths || []).join('; ') || 'путь не найден'}`);
+                });
+            }
+        }
+
+        await navigator.clipboard.writeText(lines.join('\n'));
+    }, [verificationReport]);
+
     return (
         <section className="design-docs-page design-docs-check-page">
             <div className="check-toolbar">
@@ -341,6 +384,64 @@ const KDCheckView = ({
             {namingReport && (
                 <div className={`naming-report ${namingReport.isSuccess ? 'success' : 'error'}`}>
                     {namingReport.message}
+                </div>
+            )}
+
+            {verificationReport && (
+                <div className="verification-report-overlay" role="dialog" aria-modal="true">
+                    <div className="verification-report-modal">
+                        <div className="verification-report-header">
+                            <h3>Результат верификации</h3>
+                            <div className="verification-report-actions">
+                                <button type="button" onClick={copyVerificationReport}>Скопировать</button>
+                                <button type="button" onClick={onCloseVerificationReport}>Закрыть</button>
+                            </div>
+                        </div>
+                        <div className="verification-report-body">
+                            {verificationReport.isSuccess ? (
+                                <p>Все файлы DXF и PDF найдены</p>
+                            ) : (
+                                <>
+                                    <p>Не найдены следующие файлы:</p>
+                                    <table className="verification-report-table">
+                                        <thead>
+                                            <tr>
+                                                <th>DXF файлы</th>
+                                                <th>PDF файлы</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>
+                                                    {(verificationReport.missingByBlock.DXF || []).length
+                                                        ? verificationReport.missingByBlock.DXF.join(', ')
+                                                        : '—'}
+                                                </td>
+                                                <td>
+                                                    {(verificationReport.missingByBlock.PDF || []).length
+                                                        ? verificationReport.missingByBlock.PDF.join(', ')
+                                                        : '—'}
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+
+                                    {verificationReport.duplicates.length > 0 && (
+                                        <>
+                                            <p>Файлы которые повторяются:</p>
+                                            <ul className="verification-duplicates-list">
+                                                {verificationReport.duplicates.map((duplicate) => (
+                                                    <li key={`${duplicate.blockName}-${duplicate.detailName}`}>
+                                                        {duplicate.detailName} — {(duplicate.paths || []).join('; ') || 'путь не найден'}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    </div>
                 </div>
             )}
 

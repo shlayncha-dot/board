@@ -16,6 +16,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton<IFileIndexStore, FileIndexStore>();
 builder.Services.AddScoped<IVerificationService, VerificationService>();
+builder.Services.AddSingleton<IVerificationSettingsStore, VerificationSettingsStore>();
 builder.Services.AddHttpClient<INamingService, NamingService>();
 builder.Services.AddSingleton<INamingCredentialsStore, NamingRuntimeCredentialsStore>();
 builder.Services.Configure<NamingApiOptions>(builder.Configuration.GetSection("ExternalApis:Naming"));

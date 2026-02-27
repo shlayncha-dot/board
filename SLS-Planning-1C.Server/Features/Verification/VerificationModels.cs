@@ -3,7 +3,13 @@ namespace SLS_Planning_1C.Server.Features.Verification;
 public sealed class VerificationTypeRuleDto
 {
     public int Type { get; init; }
+    public string Description { get; init; } = string.Empty;
     public string Condition { get; init; } = string.Empty;
+}
+
+public sealed class VerificationSettingsDto
+{
+    public required IReadOnlyList<VerificationTypeRuleDto> TypeRules { get; init; }
 }
 
 public sealed class VerifyRowDto

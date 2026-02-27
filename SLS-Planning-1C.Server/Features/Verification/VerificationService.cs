@@ -30,11 +30,10 @@ public sealed class VerificationService : IVerificationService
         var pdfFiles = allIndexedFiles.Where(f => string.Equals(f.Extension, ".pdf", StringComparison.OrdinalIgnoreCase)).ToList();
 
         var designationColumn = ResolveColumnKey(request.Rows, "обознач");
-        var nameColumn = ResolveColumnKey(request.Rows, "наимен");
         var typeColumn = ResolveColumnKey(request.Rows, "тип");
 
         var dxfIssues = VerifyDxf(request.Rows, designationColumn, typeColumn, dxfFiles);
-        var pdfIssues = VerifyPdf(request.Rows, designationColumn, nameColumn, typeColumn, request.TypeRules, pdfFiles);
+        var pdfIssues = VerifyPdf(request.Rows, designationColumn, typeColumn, request.TypeRules, pdfFiles);
 
         return new VerificationResponse
         {
@@ -94,7 +93,6 @@ public sealed class VerificationService : IVerificationService
     private static List<VerificationIssueDto> VerifyPdf(
         IReadOnlyList<VerifyRowDto> rows,
         string? designationColumn,
-        string? nameColumn,
         string? typeColumn,
         IReadOnlyList<VerificationTypeRuleDto> typeRules,
         IReadOnlyList<IndexedFileDto> pdfFiles)
@@ -129,20 +127,10 @@ public sealed class VerificationService : IVerificationService
                 _ => ApplyType1Algorithm(detailName, pdfFiles)
             };
 
-            AddIssues(row.RowId, ResolveDisplayName(row, nameColumn, detailName), found, issues);
+            AddIssues(row.RowId, detailName, found, issues);
         }
 
         return issues;
-    }
-
-    private static string ResolveDisplayName(VerifyRowDto row, string? nameColumn, string fallback)
-    {
-        if (nameColumn is not null && row.Values.TryGetValue(nameColumn, out var value) && !string.IsNullOrWhiteSpace(value))
-        {
-            return value;
-        }
-
-        return fallback;
     }
 
     private static void AddIssues(string rowId, string detailName, IReadOnlyList<IndexedFileDto> found, ICollection<VerificationIssueDto> issues)
@@ -189,7 +177,7 @@ public sealed class VerificationService : IVerificationService
         }
 
         var parts = condition
-            .Split(new[] { ',', ';', '\n', '\r', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         return parts.Any(p => string.Equals(p, detailPrefix, StringComparison.OrdinalIgnoreCase));
     }

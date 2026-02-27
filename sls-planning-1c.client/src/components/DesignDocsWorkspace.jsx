@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SpecificationUploadView from './designDocs/SpecificationUploadView';
 import KDCheckView from './designDocs/KDCheckView';
 import DesignDocsSettingsView from './designDocs/DesignDocsSettingsView';
@@ -34,6 +34,30 @@ const createVerificationParams = () => [
     { type: 4, description: '', condition: '' },
     { type: 5, description: '', condition: '' }
 ];
+
+const normalizeVerificationParams = (typeRules) => {
+    const defaults = createVerificationParams();
+
+    if (!Array.isArray(typeRules) || typeRules.length === 0) {
+        return defaults;
+    }
+
+    const byType = new Map(typeRules.map((rule) => [Number(rule.type), rule]));
+
+    return defaults.map((item) => {
+        const source = byType.get(item.type);
+
+        if (!source) {
+            return item;
+        }
+
+        return {
+            type: item.type,
+            description: String(source.description ?? ''),
+            condition: String(source.condition ?? '')
+        };
+    });
+};
 
 const createSpecificationSettings = () => ({
     columns: '',
@@ -131,6 +155,38 @@ const DesignDocsWorkspace = ({ activeSubItem }) => {
     const [namingCheckInProgress, setNamingCheckInProgress] = useState(false);
     const [namingIssuesByRowId, setNamingIssuesByRowId] = useState({});
     const [namingReport, setNamingReport] = useState(null);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const loadVerificationSettings = async () => {
+            try {
+                const response = await fetch(verificationApi.settings);
+
+                if (!response.ok) {
+                    throw new Error('Не удалось загрузить параметры верификации.');
+                }
+
+                const data = await response.json();
+                const nextParams = normalizeVerificationParams(data.typeRules);
+
+                if (!isMounted) {
+                    return;
+                }
+
+                setVerificationParams(nextParams);
+                setSavedVerificationParams(nextParams.map((row) => ({ ...row })));
+            } catch (error) {
+                alert(error instanceof Error ? error.message : 'Ошибка загрузки параметров верификации.');
+            }
+        };
+
+        loadVerificationSettings();
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
 
     const filteredRows = useMemo(() => {
         const normalizedSearch = searchValue.trim().toLowerCase();
@@ -360,6 +416,7 @@ const DesignDocsWorkspace = ({ activeSubItem }) => {
                 })),
                 typeRules: verificationParams.map((rule) => ({
                     type: rule.type,
+                    description: rule.description,
                     condition: rule.condition
                 }))
             };
@@ -536,10 +593,37 @@ const DesignDocsWorkspace = ({ activeSubItem }) => {
         }));
     };
 
-    const handleSavePdfPath = () => {
-        setSavedPdfPath(pdfPath);
-        setSavedVerificationParams(verificationParams.map((row) => ({ ...row })));
-        setSavedSpecificationSettings({ ...specificationSettings });
+    const handleSavePdfPath = async () => {
+        try {
+            const response = await fetch(verificationApi.settings, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    typeRules: verificationParams.map((rule) => ({
+                        type: rule.type,
+                        description: rule.description,
+                        condition: rule.condition
+                    }))
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Не удалось сохранить параметры верификации.');
+            }
+
+            const savedSettings = await response.json();
+            const normalizedSavedParams = normalizeVerificationParams(savedSettings.typeRules);
+
+            setSavedPdfPath(pdfPath);
+            setVerificationParams(normalizedSavedParams);
+            setSavedVerificationParams(normalizedSavedParams.map((row) => ({ ...row })));
+            setSavedSpecificationSettings({ ...specificationSettings });
+            alert('Параметры верификации сохранены.');
+        } catch (error) {
+            alert(error instanceof Error ? error.message : 'Ошибка сохранения параметров верификации.');
+        }
     };
 
     const handleCancelPdfPath = () => {

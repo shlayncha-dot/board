@@ -42,6 +42,34 @@ const createSpecificationSettings = () => ({
     primer: ''
 });
 
+const normalizeVerificationSeverity = (severity) => {
+    if (typeof severity === 'string') {
+        const normalized = severity.toLowerCase();
+
+        if (normalized === 'missing' || normalized === 'duplicate') {
+            return normalized;
+        }
+
+        if (normalized === '0') {
+            return 'missing';
+        }
+
+        if (normalized === '1') {
+            return 'duplicate';
+        }
+    }
+
+    if (severity === 0) {
+        return 'missing';
+    }
+
+    if (severity === 1) {
+        return 'duplicate';
+    }
+
+    return null;
+};
+
 const getColumnKey = (header, index) => {
     const normalized = String(header || '')
         .trim()
@@ -360,7 +388,11 @@ const DesignDocsWorkspace = ({ activeSubItem }) => {
             blocks.forEach((block) => {
                 block.issues.forEach((issue) => {
                     const normalizedBlockName = String(block.blockName || '').toUpperCase();
-                    const issueSeverity = String(issue.severity || '').toLowerCase();
+                    const issueSeverity = normalizeVerificationSeverity(issue.severity);
+
+                    if (!issueSeverity) {
+                        return;
+                    }
 
                     if (!issuesByRowId[issue.rowId]) {
                         issuesByRowId[issue.rowId] = {

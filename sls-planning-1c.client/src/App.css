@@ -1247,3 +1247,51 @@
     border-radius: 8px;
     padding: 8px 10px;
 }
+
+
+.admin-card--wide {
+    max-width: 100%;
+}
+
+.admin-users-table-wrap {
+    overflow: auto;
+    border: 1px dashed #666;
+    background: #fff;
+}
+
+.admin-users-table {
+    width: max-content;
+    min-width: 100%;
+    border-collapse: collapse;
+    table-layout: auto;
+}
+
+.admin-users-table th,
+.admin-users-table td {
+    border: 1px dashed #666;
+    padding: 8px 10px;
+    color: #111;
+    vertical-align: middle;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.admin-users-table th {
+    text-align: left;
+    background: #f7f7f7;
+}
+
+.admin-users-table select {
+    width: 100%;
+    border: 1px solid #c7c7c7;
+    border-radius: 6px;
+    padding: 6px 8px;
+    background: #fff;
+}
+
+.admin-user-photo {
+    width: 32px;
+    height: 32px;
+    object-fit: cover;
+    border-radius: 50%;
+}

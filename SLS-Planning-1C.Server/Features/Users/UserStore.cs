@@ -78,7 +78,18 @@ public sealed class UserStore : IUserStore
 
         return db.Users
             .OrderBy(u => u.Login, StringComparer.OrdinalIgnoreCase)
-            .Select(u => new UserListItemResponse { Login = u.Login, Role = u.Role, IsAdmin = u.IsAdmin })
+            .Select(u => new UserListItemResponse
+            {
+                Login = u.Login,
+                FirstName = u.FirstName,
+                LastName = u.LastName,
+                Role = u.Role,
+                Status = "Активен",
+                IsAdmin = u.IsAdmin,
+                Phone = u.Phone,
+                Email = u.Email,
+                PhotoUrl = u.PhotoUrl
+            })
             .ToList();
     }
 

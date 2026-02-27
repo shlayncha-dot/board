@@ -56,11 +56,11 @@ function Get-IndexedFiles {
         [string]$BasePath
     )
 
-    $files = Get-ChildItem -Path $RootPath -Recurse -File |
+    $files = @(Get-ChildItem -Path $RootPath -Recurse -File |
         Where-Object { $_.Extension -in @('.pdf', '.dxf', '.PDF', '.DXF') } |
-        Sort-Object FullName
+        Sort-Object FullName)
 
-    return $files | ForEach-Object {
+    return @($files | ForEach-Object {
         [PSCustomObject]@{
             fileName = $_.Name
             relativePath = Get-RelativePath -BasePath $BasePath -TargetPath $_.FullName
@@ -68,13 +68,23 @@ function Get-IndexedFiles {
             lastWriteTimeUtc = $_.LastWriteTimeUtc.ToString('o')
             sizeBytes = $_.Length
         }
-    }
+    })
 }
 
 function Get-SnapshotHash {
     param($Files)
 
-    $raw = ($Files | ConvertTo-Json -Depth 6 -Compress)
+    $normalizedFiles = @($Files)
+    if ($normalizedFiles.Count -eq 0) {
+        $raw = '[]'
+    }
+    else {
+        $raw = ($normalizedFiles | ConvertTo-Json -Depth 6 -Compress)
+        if ([string]::IsNullOrWhiteSpace($raw)) {
+            $raw = '[]'
+        }
+    }
+
     $bytes = [System.Text.Encoding]::UTF8.GetBytes($raw)
     $hash = [System.Security.Cryptography.SHA256]::Create().ComputeHash($bytes)
     return ([BitConverter]::ToString($hash)).Replace('-', '').ToLowerInvariant()

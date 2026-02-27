@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import './App.css';
 import LoginScreen from './components/LoginScreen';
 import HeaderBar from './components/HeaderBar';
@@ -7,7 +7,7 @@ import MainWorkspace from './components/MainWorkspace';
 import DashboardWorkspace from './components/DashboardWorkspace';
 import { menuConfig } from './config/menuConfig';
 import { t } from './config/translations';
-import { createUser, getUsers, loginUser, updateUserAccess } from './services/userService';
+import { createUser, getUserByLogin, getUsers, loginUser, updateUserAccess } from './services/userService';
 
 const STORAGE_KEY = 'sls-auth-data';
 
@@ -91,6 +91,46 @@ function App() {
     }, [lang]);
 
     const currentSubMenu = translatedMenu[activeTab].subMenu;
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const restoreActualUser = async () => {
+            if (!storedAuthData?.user?.login) {
+                return;
+            }
+
+            try {
+                const actualUser = await getUserByLogin(storedAuthData.user.login);
+
+                if (!isMounted) {
+                    return;
+                }
+
+                setUser(actualUser);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                    login: storedAuthData.login,
+                    user: actualUser
+                }));
+            } catch {
+                if (!isMounted) {
+                    return;
+                }
+
+                setIsLoggedIn(false);
+                setSettingsContext('none');
+                setUsersList([]);
+                localStorage.removeItem(STORAGE_KEY);
+                setSavedLogin('');
+            }
+        };
+
+        restoreActualUser();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [storedAuthData]);
 
     const openTab = (index) => {
         setActiveTab(index);

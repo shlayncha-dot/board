@@ -57,6 +57,16 @@ export async function getUsers(adminLogin) {
     return response.json();
 }
 
+export async function getUserByLogin(login) {
+    const response = await fetch(`${API_BASE}/${encodeURIComponent(login)}`);
+
+    if (!response.ok) {
+        throw new Error(await readErrorMessage(response, 'Не удалось загрузить пользователя.'));
+    }
+
+    return response.json();
+}
+
 export async function createUser(payload) {
     const response = await fetch(API_BASE, {
         method: 'POST',

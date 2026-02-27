@@ -30,6 +30,14 @@ public sealed class NamingService : INamingService
 
     public async Task<NamingCheckResponse> CheckAsync(NamingCheckRequest request, CancellationToken cancellationToken)
     {
+        if (request.Items is null || request.Items.Count == 0)
+        {
+            return new NamingCheckResponse
+            {
+                Results = []
+            };
+        }
+
         if (string.IsNullOrWhiteSpace(_options.CheckUrl))
         {
             throw new NamingServiceException("Не настроен URL API для проверки нейминга.", HttpStatusCode.ServiceUnavailable);
@@ -45,41 +53,64 @@ public sealed class NamingService : INamingService
 
         AddBasicAuthorizationHeaderIfConfigured(httpRequest);
 
-        using var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
-        if (!response.IsSuccessStatusCode)
+        HttpResponseMessage response;
+        try
         {
-            var isUnauthorized = response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden;
-            var message = isUnauthorized
-                ? "Внешний сервис нейминга отклонил запрос (401/403). Проверьте логин и пароль 1С в настройках сервера."
-                : $"Сервис Нейминг вернул ошибку {(int)response.StatusCode}.";
-
-            throw new NamingServiceException(message, HttpStatusCode.BadGateway);
+            response = await _httpClient.SendAsync(httpRequest, cancellationToken);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new NamingServiceException($"Не удалось подключиться к сервису Нейминг: {ex.Message}", HttpStatusCode.BadGateway);
         }
 
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
-
-        var statuses = ExtractStatuses(document.RootElement, request.Items.Count);
-        var results = request.Items
-            .Select((item, index) =>
-            {
-                var status = statuses.ElementAtOrDefault(index) ?? "Not found";
-                var isFound = string.Equals(status, "Found", StringComparison.OrdinalIgnoreCase);
-
-                return new NamingCheckResultItem
-                {
-                    RowId = item.RowId,
-                    Name = item.Name,
-                    Status = status,
-                    IsFound = isFound
-                };
-            })
-            .ToList();
-
-        return new NamingCheckResponse
+        using (response)
         {
-            Results = results
-        };
+            if (!response.IsSuccessStatusCode)
+            {
+                var isUnauthorized = response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden;
+                var message = isUnauthorized
+                    ? "Внешний сервис нейминга отклонил запрос (401/403). Проверьте логин и пароль 1С в настройках сервера."
+                    : $"Сервис Нейминг вернул ошибку {(int)response.StatusCode}.";
+
+                throw new NamingServiceException(message, HttpStatusCode.BadGateway);
+            }
+
+            JsonDocument document;
+            try
+            {
+                await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+            }
+            catch (JsonException)
+            {
+                throw new NamingServiceException("Сервис Нейминг вернул ответ в неожиданном формате.", HttpStatusCode.BadGateway);
+            }
+
+            using (document)
+            {
+                var statuses = ExtractStatuses(document.RootElement, request.Items.Count);
+                var results = request.Items
+                    .Select((item, index) =>
+                    {
+                        var status = statuses.ElementAtOrDefault(index) ?? "Not found";
+                        var isFound = string.Equals(status, "Found", StringComparison.OrdinalIgnoreCase);
+
+                        return new NamingCheckResultItem
+                        {
+                            RowId = item.RowId,
+                            Name = item.Name,
+                            Status = status,
+                            IsFound = isFound
+                        };
+                    })
+                    .ToList();
+
+                return new NamingCheckResponse
+                {
+                    Results = results
+                };
+            }
+        }
     }
 
     private void AddBasicAuthorizationHeaderIfConfigured(HttpRequestMessage request)

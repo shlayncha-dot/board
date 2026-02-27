@@ -57,8 +57,19 @@ public sealed class VerificationSettingsStore : IVerificationSettingsStore
         }
 
         var json = File.ReadAllText(_storagePath);
-        var loaded = JsonSerializer.Deserialize<VerificationSettingsDto>(json, JsonOptions);
-        return loaded is null ? null : NormalizeAndValidate(loaded);
+
+        // Backward compatibility: older files may not include specificationSettings.
+        var loaded = JsonSerializer.Deserialize<VerificationSettingsDiskDto>(json, JsonOptions);
+        if (loaded is null)
+        {
+            return null;
+        }
+
+        return NormalizeAndValidate(new VerificationSettingsDto
+        {
+            TypeRules = loaded.TypeRules ?? [],
+            SpecificationSettings = loaded.SpecificationSettings ?? new SpecificationSettingsDto()
+        });
     }
 
     private void PersistToDisk()
@@ -147,5 +158,11 @@ public sealed class VerificationSettingsStore : IVerificationSettingsStore
                 .ToList(),
             SpecificationSettings = NormalizeSpecificationSettings(source.SpecificationSettings)
         };
+    }
+
+    private sealed class VerificationSettingsDiskDto
+    {
+        public IReadOnlyList<VerificationTypeRuleDto>? TypeRules { get; init; }
+        public SpecificationSettingsDto? SpecificationSettings { get; init; }
     }
 }

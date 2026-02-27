@@ -52,7 +52,9 @@ const KDCheckView = ({
     onSetColumnWidth,
     onExcelUpload,
     searchValue,
-    onSearchChange
+    onSearchChange,
+    onRunVerification,
+    verificationInProgress
 }) => {
     const [openFilterKey, setOpenFilterKey] = React.useState(null);
     const [pendingFilters, setPendingFilters] = React.useState({});
@@ -308,7 +310,7 @@ const KDCheckView = ({
                     className="hidden-input"
                     onChange={onExcelUpload}
                 />
-                <button type="button">✅ Верификация</button>
+                <button type="button" onClick={onRunVerification} disabled={verificationInProgress}>✅ {verificationInProgress ? 'Верификация...' : 'Верификация'}</button>
                 <button type="button">🏷️ Нейминг</button>
                 <button type="button">🧩 Общая проверка КД</button>
                 <label className="kd-search-control">

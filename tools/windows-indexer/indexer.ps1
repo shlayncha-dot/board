@@ -14,6 +14,30 @@ function Get-Config {
     return Get-Content $Path -Raw | ConvertFrom-Json
 }
 
+function Assert-Config {
+    param($Config)
+
+    if (-not ($Config.serverUrl -is [string]) -or [string]::IsNullOrWhiteSpace($Config.serverUrl)) {
+        throw "Параметр config.serverUrl должен быть непустой строкой, например: http://localhost:5197"
+    }
+
+    if (-not ($Config.syncEndpoint -is [string]) -or [string]::IsNullOrWhiteSpace($Config.syncEndpoint)) {
+        throw "Параметр config.syncEndpoint должен быть непустой строкой, например: /api/file-index/sync"
+    }
+
+    if (-not ($Config.scanRoot -is [string]) -or [string]::IsNullOrWhiteSpace($Config.scanRoot)) {
+        throw "Параметр config.scanRoot должен быть непустой строкой, например: ."
+    }
+
+    if (-not ($Config.machineId -is [string]) -or [string]::IsNullOrWhiteSpace($Config.machineId)) {
+        throw "Параметр config.machineId должен быть непустой строкой"
+    }
+
+    if (-not ($Config.scanIntervalSeconds -as [int]) -or [int]$Config.scanIntervalSeconds -le 0) {
+        throw "Параметр config.scanIntervalSeconds должен быть числом больше 0"
+    }
+}
+
 function Get-RelativePath {
     param(
         [string]$BasePath,
@@ -78,6 +102,7 @@ function Send-Snapshot {
 }
 
 $config = Get-Config -Path $ConfigPath
+Assert-Config -Config $config
 $basePath = $PSScriptRoot
 $scanRoot = Resolve-Path (Join-Path $basePath $config.scanRoot)
 $lastHash = ''

@@ -21,6 +21,25 @@
 2. Выполните:
    - `run-indexer.bat`
 
+Если запускаете из **PowerShell**, используйте:
+- `./run-indexer.bat` (или `\.\run-indexer.bat` в Windows-нотации)
+
+> В PowerShell команда из текущей папки без префикса `./` не выполняется по умолчанию.
+
+Пример корректного `config.json`:
+
+```json
+{
+  "serverUrl": "http://localhost:5197",
+  "syncEndpoint": "/api/file-index/sync",
+  "scanRoot": ".",
+  "scanIntervalSeconds": 30,
+  "machineId": "PC-REMOTE-01"
+}
+```
+
+`serverUrl` должен быть **строкой**, а не вложенным объектом.
+
 ## Автозапуск (всегда работать)
 1. Откройте `cmd` от администратора.
 2. Выполните:

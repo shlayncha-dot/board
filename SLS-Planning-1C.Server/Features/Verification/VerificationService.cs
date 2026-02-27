@@ -9,7 +9,7 @@ public interface IVerificationService
 
 public sealed class VerificationService : IVerificationService
 {
-    private static readonly HashSet<string> AllowedDxfTypes = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> AllowedDetailTypes = new(StringComparer.OrdinalIgnoreCase)
     {
         "деталь",
         "деталь_кон",
@@ -34,7 +34,7 @@ public sealed class VerificationService : IVerificationService
         var typeColumn = ResolveColumnKey(request.Rows, "тип");
 
         var dxfIssues = VerifyDxf(request.Rows, designationColumn, typeColumn, dxfFiles);
-        var pdfIssues = VerifyPdf(request.Rows, designationColumn, nameColumn, request.TypeRules, pdfFiles);
+        var pdfIssues = VerifyPdf(request.Rows, designationColumn, nameColumn, typeColumn, request.TypeRules, pdfFiles);
 
         return new VerificationResponse
         {
@@ -68,7 +68,7 @@ public sealed class VerificationService : IVerificationService
 
         foreach (var row in rows)
         {
-            if (!row.Values.TryGetValue(typeColumn, out var detailType) || !IsAllowedDxfType(detailType))
+            if (!row.Values.TryGetValue(typeColumn, out var detailType) || !IsAllowedDetailType(detailType))
             {
                 continue;
             }
@@ -85,27 +85,33 @@ public sealed class VerificationService : IVerificationService
         return issues;
     }
 
-    private static bool IsAllowedDxfType(string detailType)
+    private static bool IsAllowedDetailType(string detailType)
     {
         var normalized = detailType.Trim().ToLowerInvariant();
-        return AllowedDxfTypes.Contains(normalized);
+        return AllowedDetailTypes.Contains(normalized);
     }
 
     private static List<VerificationIssueDto> VerifyPdf(
         IReadOnlyList<VerifyRowDto> rows,
         string? designationColumn,
         string? nameColumn,
+        string? typeColumn,
         IReadOnlyList<VerificationTypeRuleDto> typeRules,
         IReadOnlyList<IndexedFileDto> pdfFiles)
     {
         var issues = new List<VerificationIssueDto>();
-        if (designationColumn is null)
+        if (designationColumn is null || typeColumn is null)
         {
             return issues;
         }
 
         foreach (var row in rows)
         {
+            if (!row.Values.TryGetValue(typeColumn, out var detailType) || !IsAllowedDetailType(detailType))
+            {
+                continue;
+            }
+
             if (!row.Values.TryGetValue(designationColumn, out var detailName) || string.IsNullOrWhiteSpace(detailName))
             {
                 continue;
@@ -120,7 +126,7 @@ public sealed class VerificationService : IVerificationService
                 3 => ApplyType3Algorithm(detailName, pdfFiles),
                 4 => ApplyType4Algorithm(detailName, pdfFiles),
                 5 => ApplyType5Algorithm(detailName, pdfFiles),
-                _ => FindExactByFileName(detailName, pdfFiles)
+                _ => ApplyType1Algorithm(detailName, pdfFiles)
             };
 
             AddIssues(row.RowId, ResolveDisplayName(row, nameColumn, detailName), found, issues);
@@ -172,7 +178,7 @@ public sealed class VerificationService : IVerificationService
             }
         }
 
-        return 0;
+        return 1;
     }
 
     private static bool ConditionContainsPrefix(string condition, string detailPrefix)
@@ -188,8 +194,30 @@ public sealed class VerificationService : IVerificationService
         return parts.Any(p => string.Equals(p, detailPrefix, StringComparison.OrdinalIgnoreCase));
     }
 
+    private static IReadOnlyList<IndexedFileDto> ApplyType1Algorithm(string detailName, IReadOnlyList<IndexedFileDto> files)
+    {
+        var normalizedDetailName = NormalizeType1DetailName(detailName);
+        if (string.IsNullOrWhiteSpace(normalizedDetailName))
+        {
+            return [];
+        }
+
+        return FindExactByFileName(normalizedDetailName, files);
+    }
+
+    private static string NormalizeType1DetailName(string detailName)
+    {
+        var normalized = detailName.Trim();
+        var dashIndex = normalized.IndexOf('-');
+        if (dashIndex >= 0)
+        {
+            normalized = normalized[..dashIndex].Trim();
+        }
+
+        return normalized;
+    }
+
     // Заглушки для дальнейшей детализации.
-    private static IReadOnlyList<IndexedFileDto> ApplyType1Algorithm(string detailName, IReadOnlyList<IndexedFileDto> files) => FindExactByFileName(detailName, files);
     private static IReadOnlyList<IndexedFileDto> ApplyType2Algorithm(string detailName, IReadOnlyList<IndexedFileDto> files) => FindExactByFileName(detailName, files);
     private static IReadOnlyList<IndexedFileDto> ApplyType3Algorithm(string detailName, IReadOnlyList<IndexedFileDto> files) => FindExactByFileName(detailName, files);
     private static IReadOnlyList<IndexedFileDto> ApplyType4Algorithm(string detailName, IReadOnlyList<IndexedFileDto> files) => FindExactByFileName(detailName, files);

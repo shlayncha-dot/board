@@ -214,13 +214,15 @@ public sealed class VerificationService : IVerificationService
             return [];
         }
 
+        var key = detailKey.Value;
+
         return files
             .Where(file =>
             {
                 var fileKey = ExtractType2SearchKey(Path.GetFileNameWithoutExtension(file.FileName));
                 return fileKey is not null
-                    && string.Equals(fileKey.Prefix, detailKey.Prefix, StringComparison.OrdinalIgnoreCase)
-                    && string.Equals(fileKey.Suffix, detailKey.Suffix, StringComparison.Ordinal);
+                    && string.Equals(fileKey.Value.Prefix, key.Prefix, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(fileKey.Value.Suffix, key.Suffix, StringComparison.Ordinal);
             })
             .ToList();
     }

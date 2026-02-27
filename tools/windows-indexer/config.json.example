@@ -1,0 +1,7 @@
+{
+  "serverUrl": "https://sls-planning.omnic.pro",
+  "syncEndpoint": "/api/file-index/sync",
+  "scanRoot": ".",
+  "scanIntervalSeconds": 30,
+  "machineId": "PC-REMOTE-01"
+}

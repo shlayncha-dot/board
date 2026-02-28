@@ -541,7 +541,24 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
 
             if (!response.ok) {
                 appendNamingLog('Сервис Нейминг вернул ошибку статуса.');
-                throw new Error('Ошибка запроса к сервису Нейминг.');
+
+                let serverMessage = `Ошибка запроса к сервису Нейминг (HTTP ${response.status}).`;
+
+                try {
+                    const errorPayload = await response.json();
+                    const detail = typeof errorPayload?.detail === 'string' ? errorPayload.detail.trim() : '';
+                    const title = typeof errorPayload?.title === 'string' ? errorPayload.title.trim() : '';
+                    const combinedMessage = detail || title;
+
+                    if (combinedMessage) {
+                        serverMessage = combinedMessage;
+                        appendNamingLog(`Детали ошибки сервера: ${combinedMessage}`);
+                    }
+                } catch {
+                    appendNamingLog('Не удалось прочитать тело ошибки от сервера.');
+                }
+
+                throw new Error(serverMessage);
             }
 
             const result = await response.json();

@@ -9,9 +9,9 @@ const splitSections = (rawText) => {
         .filter((value, index, array) => array.findIndex((item) => item.toLowerCase() === value.toLowerCase()) === index);
 };
 
-const buildEmptyDetails = () => ({ parametersText: '', qcText: '' });
+const buildEmptyDetails = () => ({ equipmentText: '', parametersText: '', qcText: '' });
 
-const normalizeResponseDetails = (detailsByName) => {
+const normalizeResponseDetails = (detailsByName, fallbackEquipmentText = '') => {
     const normalized = {};
 
     if (!detailsByName || typeof detailsByName !== 'object') {
@@ -20,6 +20,7 @@ const normalizeResponseDetails = (detailsByName) => {
 
     Object.entries(detailsByName).forEach(([key, value]) => {
         normalized[key] = {
+            equipmentText: value?.equipmentText ?? fallbackEquipmentText,
             parametersText: value?.parametersText ?? '',
             qcText: value?.qcText ?? ''
         };
@@ -30,7 +31,6 @@ const normalizeResponseDetails = (detailsByName) => {
 
 const TechnologistRouteSheetSettings = () => {
     const [sectionsText, setSectionsText] = useState('');
-    const [equipmentText, setEquipmentText] = useState('');
     const [selectedSection, setSelectedSection] = useState('');
     const [detailsBySection, setDetailsBySection] = useState({});
     const [message, setMessage] = useState('');
@@ -52,9 +52,8 @@ const TechnologistRouteSheetSettings = () => {
                 const nextSelected = nextSectionOptions.find((option) => option.toLowerCase() === (data?.selectedSection ?? '').toLowerCase()) ?? nextSectionOptions[0] ?? '';
 
                 setSectionsText(nextSectionsText);
-                setEquipmentText(data?.equipmentText ?? '');
                 setSelectedSection(nextSelected);
-                setDetailsBySection(normalizeResponseDetails(data?.sectionDetailsByName));
+                setDetailsBySection(normalizeResponseDetails(data?.sectionDetailsByName, data?.equipmentText ?? ''));
             } catch (loadError) {
                 setError(loadError.message || 'Не удалось загрузить настройки.');
             } finally {
@@ -102,12 +101,6 @@ const TechnologistRouteSheetSettings = () => {
         setError('');
     };
 
-    const onEquipmentChange = (event) => {
-        setEquipmentText(event.target.value);
-        setMessage('');
-        setError('');
-    };
-
     const onUpdateCurrentDetails = (fieldName, value) => {
         if (!selectedSection) {
             return;
@@ -131,7 +124,6 @@ const TechnologistRouteSheetSettings = () => {
 
         const payload = {
             sectionsText,
-            equipmentText,
             selectedSection,
             sectionDetailsByName: detailsBySection
         };
@@ -143,9 +135,8 @@ const TechnologistRouteSheetSettings = () => {
             const nextSelected = nextSectionOptions.find((option) => option.toLowerCase() === (saved?.selectedSection ?? '').toLowerCase()) ?? nextSectionOptions[0] ?? '';
 
             setSectionsText(nextSectionsText);
-            setEquipmentText(saved?.equipmentText ?? equipmentText);
             setSelectedSection(nextSelected);
-            setDetailsBySection(normalizeResponseDetails(saved?.sectionDetailsByName));
+            setDetailsBySection(normalizeResponseDetails(saved?.sectionDetailsByName, saved?.equipmentText ?? ''));
             setMessage('Настройки маршрутного листа сохранены.');
         } catch (saveError) {
             setError(saveError.message || 'Ошибка сохранения.');
@@ -190,7 +181,13 @@ const TechnologistRouteSheetSettings = () => {
 
                         <div className="tech-route-column">
                             <label htmlFor="equipment-text">Оборудование</label>
-                            <textarea id="equipment-text" rows={15} value={equipmentText} onChange={onEquipmentChange} />
+                            <textarea
+                                id="equipment-text"
+                                rows={15}
+                                value={currentDetails.equipmentText}
+                                onChange={(event) => onUpdateCurrentDetails('equipmentText', event.target.value)}
+                                disabled={!selectedSection}
+                            />
                         </div>
 
                         <div className="tech-route-column">

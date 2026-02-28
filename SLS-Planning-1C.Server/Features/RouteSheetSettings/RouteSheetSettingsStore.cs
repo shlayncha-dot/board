@@ -94,12 +94,15 @@ public sealed class RouteSheetSettingsStore : IRouteSheetSettingsStore
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
+        var sourceDetails = settings.SectionDetailsByName ?? new Dictionary<string, RouteSheetSectionDetailsDto>(StringComparer.OrdinalIgnoreCase);
         var details = new Dictionary<string, RouteSheetSectionDetailsDto>(StringComparer.OrdinalIgnoreCase);
+        var fallbackEquipmentText = settings.EquipmentText?.Trim() ?? string.Empty;
         foreach (var section in normalizedSections)
         {
-            settings.SectionDetailsByName.TryGetValue(section, out var sectionDetails);
+            sourceDetails.TryGetValue(section, out var sectionDetails);
             details[section] = new RouteSheetSectionDetailsDto
             {
+                EquipmentText = sectionDetails?.EquipmentText?.Trim() ?? fallbackEquipmentText,
                 ParametersText = sectionDetails?.ParametersText?.Trim() ?? string.Empty,
                 QcText = sectionDetails?.QcText?.Trim() ?? string.Empty
             };
@@ -111,10 +114,12 @@ public sealed class RouteSheetSettingsStore : IRouteSheetSettingsStore
             selectedSection = normalizedSections.FirstOrDefault() ?? string.Empty;
         }
 
+        var equipmentText = settings.EquipmentText?.Trim() ?? details.GetValueOrDefault(selectedSection)?.EquipmentText ?? string.Empty;
+
         return new RouteSheetSettingsDto
         {
             SectionsText = safeSectionsText,
-            EquipmentText = settings.EquipmentText?.Trim() ?? string.Empty,
+            EquipmentText = equipmentText,
             SelectedSection = selectedSection,
             SectionDetailsByName = details
         };

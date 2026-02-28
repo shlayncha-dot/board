@@ -1398,7 +1398,9 @@
 
 .tech-route-settings h2 {
     margin: 0;
-    font-size: 24px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #777;
 }
 
 .tech-route-grid {

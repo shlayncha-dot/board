@@ -10,6 +10,7 @@ public sealed class RouteSheetSettingsDto
 
 public sealed class RouteSheetSectionDetailsDto
 {
+    public string EquipmentText { get; set; } = string.Empty;
     public string ParametersText { get; set; } = string.Empty;
     public string QcText { get; set; } = string.Empty;
 }

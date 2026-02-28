@@ -20,6 +20,7 @@ const translations = {
 
     'settings.profileTitle': 'Настройки профиля',
     'settings.changeAvatar': 'Сменить аватар',
+    'settings.changePhoto': 'Сменить фото',
     'settings.firstName': 'Имя',
     'settings.lastName': 'Фамилия',
     'settings.phone': 'Телефон',
@@ -105,6 +106,7 @@ const translations = {
 
     'settings.profileTitle': 'Profile settings',
     'settings.changeAvatar': 'Change avatar',
+    'settings.changePhoto': 'Change photo',
     'settings.firstName': 'First name',
     'settings.lastName': 'Last name',
     'settings.phone': 'Phone',
@@ -190,6 +192,7 @@ const translations = {
 
     'settings.profileTitle': 'პროფილის პარამეტრები',
     'settings.changeAvatar': 'ავატარის შეცვლა',
+    'settings.changePhoto': 'ფოტოს შეცვლა',
     'settings.firstName': 'სახელი',
     'settings.lastName': 'გვარი',
     'settings.phone': 'ტელეფონი',

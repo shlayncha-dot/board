@@ -1306,3 +1306,77 @@
     object-fit: cover;
     border-radius: 50%;
 }
+
+.main-display.account-mode {
+    align-items: stretch;
+    justify-content: flex-start;
+    overflow: auto;
+    padding: 20px 24px;
+}
+
+.settings-form {
+    width: 100%;
+    max-width: 960px;
+    padding: 0;
+    margin: 0 auto;
+    display: grid;
+    gap: 18px;
+}
+
+.settings-split {
+    align-items: flex-start;
+}
+
+.settings-avatar {
+    min-width: 220px;
+    display: grid;
+    gap: 10px;
+}
+
+.settings-photo-input {
+    display: none;
+}
+
+.settings-photo-btn {
+    width: fit-content;
+    padding: 10px 16px;
+}
+
+.settings-inputs {
+    max-width: 420px;
+}
+
+.settings-inputs label,
+.password-panel label {
+    color: #1d2939;
+    font-weight: 500;
+}
+
+.settings-inputs input,
+.password-panel input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.password-panel {
+    margin-top: 0;
+    max-width: 640px;
+}
+
+.settings-btn-row--bottom {
+    margin-top: 0;
+    padding-bottom: 12px;
+}
+
+@media (max-width: 960px) {
+    .settings-split {
+        flex-direction: column;
+        gap: 18px;
+    }
+
+    .settings-avatar,
+    .settings-inputs,
+    .password-panel {
+        max-width: 100%;
+    }
+}

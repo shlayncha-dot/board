@@ -12,6 +12,7 @@ public interface IUserStore
     Task<(bool success, string? error)> UpdateAccessAsync(UpdateUserAccessRequest request, CancellationToken cancellationToken);
     Task<(bool success, string? error)> UpdateProfileAsync(UpdateProfileRequest request, CancellationToken cancellationToken);
     Task<(bool success, string? error)> ChangePasswordAsync(ChangePasswordRequest request, CancellationToken cancellationToken);
+    Task<(bool success, string? error, string? photoUrl)> UpdatePhotoAsync(string login, string photoUrl, CancellationToken cancellationToken);
 }
 
 public sealed class UserStore : IUserStore
@@ -209,6 +210,22 @@ public sealed class UserStore : IUserStore
 
         await SaveAsync(db, cancellationToken);
         return (true, null);
+    }
+
+    public async Task<(bool success, string? error, string? photoUrl)> UpdatePhotoAsync(string login, string photoUrl, CancellationToken cancellationToken)
+    {
+        var db = await LoadAsync(cancellationToken);
+        var user = db.Users.FirstOrDefault(u => string.Equals(u.Login, login.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (user is null)
+        {
+            return (false, "Пользователь не найден.", null);
+        }
+
+        user.PhotoUrl = photoUrl.Trim();
+        user.UpdatedAt = DateTimeOffset.UtcNow;
+
+        await SaveAsync(db, cancellationToken);
+        return (true, null, user.PhotoUrl);
     }
 
     private async Task<UsersDatabase> LoadAsync(CancellationToken cancellationToken)

@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc;
 using SLS_Planning_1C.Server.Features.Users;
 
@@ -47,6 +48,61 @@ public sealed class UserAccountsController : ControllerBase
         return result.success ? Ok() : BadRequest(new { message = result.error });
     }
 
+
+
+    [HttpPost("photo")]
+    [RequestSizeLimit(10_000_000)]
+    public async Task<ActionResult<UploadPhotoResponse>> UploadPhoto([FromForm] string login, [FromForm] IFormFile photo, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(login))
+        {
+            return BadRequest(new { message = "Логин обязателен." });
+        }
+
+        if (photo is null || photo.Length == 0)
+        {
+            return BadRequest(new { message = "Файл не выбран." });
+        }
+
+        if (!photo.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new { message = "Разрешены только изображения." });
+        }
+
+        var extension = Path.GetExtension(photo.FileName);
+        if (string.IsNullOrWhiteSpace(extension))
+        {
+            extension = ".png";
+        }
+
+        var safeLogin = Regex.Replace(login.Trim().ToLowerInvariant(), "[^a-z0-9]+", "-").Trim('-');
+        if (string.IsNullOrWhiteSpace(safeLogin))
+        {
+            safeLogin = "user";
+        }
+
+        var uploadsDirectory = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "avatars");
+        Directory.CreateDirectory(uploadsDirectory);
+
+        var fileName = $"{safeLogin}-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}{extension}";
+        var filePath = Path.Combine(uploadsDirectory, fileName);
+
+        await using (var stream = System.IO.File.Create(filePath))
+        {
+            await photo.CopyToAsync(stream, cancellationToken);
+        }
+
+        var photoUrl = $"/uploads/avatars/{fileName}";
+        var result = await _userStore.UpdatePhotoAsync(login, photoUrl, cancellationToken);
+
+        if (!result.success)
+        {
+            System.IO.File.Delete(filePath);
+            return BadRequest(new { message = result.error });
+        }
+
+        return Ok(new UploadPhotoResponse { PhotoUrl = result.photoUrl ?? photoUrl });
+    }
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<UserListItemResponse>>> GetUsers([FromQuery] string adminLogin, CancellationToken cancellationToken)
     {

@@ -73,6 +73,11 @@ public sealed class UserResponse
     public bool IsAdmin { get; set; }
 }
 
+public sealed class UploadPhotoResponse
+{
+    public string PhotoUrl { get; set; } = string.Empty;
+}
+
 public sealed class UserListItemResponse
 {
     public string Login { get; set; } = string.Empty;

@@ -90,3 +90,20 @@ export async function updateUserAccess(payload) {
         throw new Error(await readErrorMessage(response, 'Не удалось обновить настройки пользователя.'));
     }
 }
+
+export async function uploadUserPhoto(login, file) {
+    const formData = new FormData();
+    formData.append('login', login);
+    formData.append('photo', file);
+
+    const response = await fetch(`${API_BASE}/photo`, {
+        method: 'POST',
+        body: formData
+    });
+
+    if (!response.ok) {
+        throw new Error(await readErrorMessage(response, 'Не удалось загрузить фото.'));
+    }
+
+    return response.json();
+}

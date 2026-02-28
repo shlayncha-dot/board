@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 
 const DEFAULT_PROCEDURE_TITLE = 'Процедура (не задано)';
+const MIN_COLUMN_WIDTH = 72;
 
 const formatNormativeTotal = (value) => {
     if (Number.isInteger(value)) {
@@ -63,45 +64,157 @@ const parseTableFromExcel = async (file) => {
     return { columns, rows };
 };
 
-const DataTable = ({ title, columns, rows, selectedIds, onToggleRow, emptyMessage }) => (
-    <div className="assembly-stages-table-card">
-        <div className="assembly-stages-table-title">{title}</div>
-        <div className="assembly-stages-table-scroll">
-            <table className="assembly-stages-table">
-                <thead>
-                    <tr>
-                        <th className="assembly-stages-checkbox-col">✓</th>
-                        {columns.map((column) => (
-                            <th key={column}>{column}</th>
-                        ))}
-                    </tr>
-                </thead>
-                <tbody>
-                    {rows.length === 0 ? (
+const findColumnIndex = (columns, variants) => columns.findIndex((column) => {
+    const normalizedColumn = String(column || '').trim().toLowerCase();
+    return variants.some((variant) => normalizedColumn === variant);
+});
+
+const isChildPoz = (parentPoz, candidatePoz) => {
+    const parent = String(parentPoz || '').trim();
+    const candidate = String(candidatePoz || '').trim();
+
+    if (!parent || !candidate || parent === candidate || !candidate.startsWith(parent)) {
+        return false;
+    }
+
+    const nextSymbol = candidate[parent.length];
+
+    return ['.', '-', '/', '\\', ' '].includes(nextSymbol);
+};
+
+const getRowAndChildrenIds = (rows, sourceId, typeColumnIndex, pozColumnIndex) => {
+    const row = rows.find((item) => item.id === sourceId);
+
+    if (!row) {
+        return [];
+    }
+
+    const rowType = String(row.values[typeColumnIndex] || '').trim().toUpperCase();
+
+    if (rowType !== 'СБ') {
+        return [sourceId];
+    }
+
+    const parentPoz = row.values[pozColumnIndex];
+    const nestedIds = rows
+        .filter((item) => isChildPoz(parentPoz, item.values[pozColumnIndex]))
+        .map((item) => item.id);
+
+    return [sourceId, ...nestedIds];
+};
+
+const buildSelectionUpdater = ({ rows, typeColumnIndex, pozColumnIndex, setSelectedIds }) => (id) => {
+    setSelectedIds((prev) => {
+        const next = new Set(prev);
+        const affectedIds = getRowAndChildrenIds(rows, id, typeColumnIndex, pozColumnIndex);
+        const shouldCheck = !next.has(id);
+
+        affectedIds.forEach((affectedId) => {
+            if (shouldCheck) {
+                next.add(affectedId);
+            } else {
+                next.delete(affectedId);
+            }
+        });
+
+        return next;
+    });
+};
+
+const DataTable = ({
+    title,
+    columns,
+    rows,
+    selectedIds,
+    onToggleRow,
+    onToggleAll,
+    emptyMessage,
+    columnWidths,
+    onSetColumnWidth
+}) => {
+    const resizeStateRef = useRef(null);
+
+    const handleResizeStart = (event, columnIndex) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        resizeStateRef.current = {
+            columnIndex,
+            startX: event.clientX,
+            startWidth: columnWidths[columnIndex] || 160
+        };
+
+        const onMouseMove = (moveEvent) => {
+            if (!resizeStateRef.current) {
+                return;
+            }
+
+            const nextWidth = Math.max(MIN_COLUMN_WIDTH, resizeStateRef.current.startWidth + (moveEvent.clientX - resizeStateRef.current.startX));
+            onSetColumnWidth(resizeStateRef.current.columnIndex, nextWidth);
+        };
+
+        const onMouseUp = () => {
+            resizeStateRef.current = null;
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+        };
+
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup', onMouseUp);
+    };
+
+    const allSelected = rows.length > 0 && rows.every((row) => selectedIds.has(row.id));
+
+    return (
+        <div className="assembly-stages-table-card">
+            <div className="assembly-stages-table-title">{title}</div>
+            <div className="assembly-stages-table-scroll">
+                <table className="assembly-stages-table">
+                    <thead>
                         <tr>
-                            <td colSpan={Math.max(columns.length + 1, 2)} className="assembly-stages-empty-row">{emptyMessage}</td>
-                        </tr>
-                    ) : (
-                        rows.map((row) => (
-                            <tr key={row.id}>
-                                <td className="assembly-stages-checkbox-col">
-                                    <input
-                                        type="checkbox"
-                                        checked={selectedIds.has(row.id)}
-                                        onChange={() => onToggleRow(row.id)}
+                            <th className="assembly-stages-checkbox-col">
+                                <input type="checkbox" checked={allSelected} onChange={onToggleAll} />
+                            </th>
+                            {columns.map((column, index) => (
+                                <th key={`${column}-${index}`} style={{ width: `${columnWidths[index] || 160}px` }}>
+                                    <div className="assembly-stages-th-content">{column}</div>
+                                    <button
+                                        type="button"
+                                        className="assembly-stages-resize-handle"
+                                        aria-label={`Изменить ширину столбца ${column}`}
+                                        onMouseDown={(event) => handleResizeStart(event, index)}
                                     />
-                                </td>
-                                {columns.map((column, index) => (
-                                    <td key={`${row.id}-${column}`}>{row.values[index] || ''}</td>
-                                ))}
+                                </th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows.length === 0 ? (
+                            <tr>
+                                <td colSpan={Math.max(columns.length + 1, 2)} className="assembly-stages-empty-row">{emptyMessage}</td>
                             </tr>
-                        ))
-                    )}
-                </tbody>
-            </table>
+                        ) : (
+                            rows.map((row) => (
+                                <tr key={row.id}>
+                                    <td className="assembly-stages-checkbox-col">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedIds.has(row.id)}
+                                            onChange={() => onToggleRow(row.id)}
+                                        />
+                                    </td>
+                                    {columns.map((column, index) => (
+                                        <td key={`${row.id}-${column}`}>{row.values[index] || ''}</td>
+                                    ))}
+                                </tr>
+                            ))
+                        )}
+                    </tbody>
+                </table>
+            </div>
         </div>
-    </div>
-);
+    );
+};
 
 const AssemblyStagesWorkspace = () => {
     const fileInputRef = useRef(null);
@@ -117,6 +230,10 @@ const AssemblyStagesWorkspace = () => {
     const [bottomRows, setBottomRows] = useState([]);
     const [selectedTopIds, setSelectedTopIds] = useState(new Set());
     const [selectedBottomIds, setSelectedBottomIds] = useState(new Set());
+    const [columnWidths, setColumnWidths] = useState({});
+
+    const typeColumnIndex = useMemo(() => findColumnIndex(tableColumns, ['тип']), [tableColumns]);
+    const pozColumnIndex = useMemo(() => findColumnIndex(tableColumns, ['поз']), [tableColumns]);
 
     const topTableTitle = useMemo(() => {
         const value = procedureName.trim();
@@ -134,28 +251,29 @@ const AssemblyStagesWorkspace = () => {
         return sum;
     }, 0), [createdProcedures]);
 
-    const onToggleTopRow = (id) => {
-        setSelectedTopIds((prev) => {
-            const next = new Set(prev);
-            if (next.has(id)) {
-                next.delete(id);
-            } else {
-                next.add(id);
-            }
-            return next;
-        });
+    const onToggleTopRow = buildSelectionUpdater({ rows: topRows, typeColumnIndex, pozColumnIndex, setSelectedIds: setSelectedTopIds });
+    const onToggleBottomRow = buildSelectionUpdater({ rows: bottomRows, typeColumnIndex, pozColumnIndex, setSelectedIds: setSelectedBottomIds });
+
+    const setColumnWidth = (columnIndex, width) => {
+        setColumnWidths((prev) => ({ ...prev, [columnIndex]: width }));
     };
 
-    const onToggleBottomRow = (id) => {
-        setSelectedBottomIds((prev) => {
-            const next = new Set(prev);
-            if (next.has(id)) {
-                next.delete(id);
-            } else {
-                next.add(id);
-            }
-            return next;
-        });
+    const onToggleAllTopRows = () => {
+        if (topRows.length === 0) {
+            return;
+        }
+
+        const allSelected = topRows.every((row) => selectedTopIds.has(row.id));
+        setSelectedTopIds(allSelected ? new Set() : new Set(topRows.map((row) => row.id)));
+    };
+
+    const onToggleAllBottomRows = () => {
+        if (bottomRows.length === 0) {
+            return;
+        }
+
+        const allSelected = bottomRows.every((row) => selectedBottomIds.has(row.id));
+        setSelectedBottomIds(allSelected ? new Set() : new Set(bottomRows.map((row) => row.id)));
     };
 
     const handleLoadSpecification = async (event) => {
@@ -174,6 +292,7 @@ const AssemblyStagesWorkspace = () => {
             setBottomRows(parsedTable.rows);
             setSelectedTopIds(new Set());
             setSelectedBottomIds(new Set());
+            setColumnWidths({});
         } catch {
             alert('Не удалось прочитать Excel-файл. Проверьте формат .xls/.xlsx и повторите попытку.');
         } finally {
@@ -233,7 +352,7 @@ const AssemblyStagesWorkspace = () => {
     return (
         <section className="assembly-stages-layout">
             <header className="assembly-stages-toolbar">
-                <button type="button" onClick={() => fileInputRef.current?.click()}>Загрузить спецификацию</button>
+                <button type="button" className="assembly-stages-upload-btn" onClick={() => fileInputRef.current?.click()}>📥 Загрузить спецификацию</button>
                 <span className="assembly-stages-upload-mode">Алгоритм: Загрузить Excel файл</span>
                 <span className="assembly-stages-file-name">{fileName}</span>
 
@@ -254,7 +373,10 @@ const AssemblyStagesWorkspace = () => {
                         rows={topRows}
                         selectedIds={selectedTopIds}
                         onToggleRow={onToggleTopRow}
+                        onToggleAll={onToggleAllTopRows}
                         emptyMessage="Данные пока не выбраны"
+                        columnWidths={columnWidths}
+                        onSetColumnWidth={setColumnWidth}
                     />
 
                     <div className="assembly-stages-transfer-panel">
@@ -268,7 +390,10 @@ const AssemblyStagesWorkspace = () => {
                         rows={bottomRows}
                         selectedIds={selectedBottomIds}
                         onToggleRow={onToggleBottomRow}
+                        onToggleAll={onToggleAllBottomRows}
                         emptyMessage="Спецификация не загружена"
+                        columnWidths={columnWidths}
+                        onSetColumnWidth={setColumnWidth}
                     />
                 </div>
 
@@ -281,32 +406,40 @@ const AssemblyStagesWorkspace = () => {
                         onChange={(event) => setProcedureName(event.target.value)}
                     />
 
-                    <label htmlFor="procedure-place">Место</label>
-                    <input
-                        id="procedure-place"
-                        type="text"
-                        value={place}
-                        onChange={(event) => setPlace(event.target.value)}
-                    />
+                    <div className="assembly-stages-inline-fields">
+                        <label htmlFor="procedure-place">Место</label>
+                        <input
+                            id="procedure-place"
+                            type="text"
+                            value={place}
+                            onChange={(event) => setPlace(event.target.value)}
+                        />
 
-                    <label htmlFor="procedure-normative">Норматив</label>
-                    <input
-                        id="procedure-normative"
-                        type="text"
-                        value={normative}
-                        onChange={(event) => setNormative(event.target.value)}
-                    />
+                        <label htmlFor="procedure-normative">Норматив, с</label>
+                        <input
+                            id="procedure-normative"
+                            type="text"
+                            value={normative}
+                            onChange={(event) => setNormative(event.target.value)}
+                        />
+                    </div>
 
                     <button type="button" onClick={handleCreateProcedure} className="assembly-stages-create-btn">Создать</button>
 
                     <div className="assembly-stages-created-table-wrap">
                         <table className="assembly-stages-table">
+                            <colgroup>
+                                <col style={{ width: '48px' }} />
+                                <col />
+                                <col style={{ width: '80px' }} />
+                                <col style={{ width: '108px' }} />
+                            </colgroup>
                             <thead>
                                 <tr>
-                                    <th>Номер по порядку</th>
+                                    <th>№</th>
                                     <th>Название процедуры</th>
                                     <th>Место</th>
-                                    <th>Норматив</th>
+                                    <th>Норматив, с</th>
                                 </tr>
                             </thead>
                             <tbody>

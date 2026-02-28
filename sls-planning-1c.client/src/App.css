@@ -2156,6 +2156,15 @@
     cursor: pointer;
 }
 
+.assembly-stages-upload-btn {
+    border: none !important;
+    border-radius: 10px !important;
+    padding: 10px 14px !important;
+    background: #101010 !important;
+    color: #fff;
+    font-weight: 600;
+}
+
 .assembly-stages-upload-mode {
     display: inline-flex;
     align-items: center;
@@ -2192,6 +2201,17 @@
     font-size: 12px;
     min-height: 0;
     min-width: 0;
+}
+
+.assembly-stages-inline-fields {
+    display: grid;
+    grid-template-columns: minmax(0, auto) minmax(90px, 1fr) minmax(0, auto) minmax(110px, 1fr);
+    gap: 6px;
+    align-items: center;
+}
+
+.assembly-stages-inline-fields label {
+    white-space: nowrap;
 }
 
 .assembly-stages-create-btn {
@@ -2231,17 +2251,19 @@
 }
 
 .assembly-stages-table-scroll {
-    overflow: auto;
+    overflow-x: auto;
+    overflow-y: auto;
     min-height: 0;
     min-width: 0;
     max-height: 100%;
+    scrollbar-gutter: stable;
 }
 
 .assembly-stages-table {
-    width: 100%;
+    width: max-content;
     min-width: 100%;
     border-collapse: collapse;
-    table-layout: fixed;
+    table-layout: auto;
 }
 
 .assembly-stages-table th,
@@ -2252,9 +2274,7 @@
     text-align: left;
     font-size: 13px;
     white-space: nowrap;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    min-width: fit-content;
 }
 
 .assembly-stages-table th {
@@ -2264,6 +2284,22 @@
     color: #fff;
     z-index: 1;
     border-bottom: 1px dashed #666;
+    padding-right: 18px;
+}
+
+.assembly-stages-th-content {
+    position: relative;
+}
+
+.assembly-stages-resize-handle {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 12px;
+    height: 100%;
+    border: none;
+    background: transparent;
+    cursor: col-resize;
 }
 
 .assembly-stages-table th:last-child,

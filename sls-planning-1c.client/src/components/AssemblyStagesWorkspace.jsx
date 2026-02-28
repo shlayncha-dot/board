@@ -4,13 +4,7 @@ import { createAssemblyProcedure, getAssemblyProcedures } from '../services/asse
 const DEFAULT_PROCEDURE_TITLE = 'Процедура (не задано)';
 const MIN_COLUMN_WIDTH = 72;
 
-const formatNormativeTotal = (value) => {
-    if (Number.isInteger(value)) {
-        return String(value);
-    }
-
-    return value.toLocaleString('ru-RU', { maximumFractionDigits: 3 });
-};
+const formatNormativeTotalMinutes = (secondsTotal) => String(Math.ceil(secondsTotal / 60));
 
 const ensureSheetJs = () => {
     if (window.XLSX) {
@@ -221,10 +215,9 @@ const mapProcedureForView = (item) => ({
     id: item.id,
     name: item.procedureName,
     place: item.place,
-    normative: item.normative
+    normative: item.normative,
+    details: Array.isArray(item.details) ? item.details : []
 });
-
-const extractVersionFromFileName = (name) => String(name || '').replace(/\.[^.]+$/, '').trim();
 
 const AssemblyStagesWorkspace = () => {
     const fileInputRef = useRef(null);
@@ -233,9 +226,7 @@ const AssemblyStagesWorkspace = () => {
     const [place, setPlace] = useState('');
     const [normative, setNormative] = useState('');
     const [createdProcedures, setCreatedProcedures] = useState([]);
-    const [fileName, setFileName] = useState('Файл не выбран');
     const [specificationName, setSpecificationName] = useState('');
-    const [specificationVersion, setSpecificationVersion] = useState('');
 
     const [tableColumns, setTableColumns] = useState([]);
     const [topRows, setTopRows] = useState([]);
@@ -254,16 +245,16 @@ const AssemblyStagesWorkspace = () => {
     }, [procedureName]);
 
     useEffect(() => {
-        const version = specificationVersion.trim();
+        const selectedSpecificationName = specificationName.trim();
 
-        if (!version) {
+        if (!selectedSpecificationName) {
             setCreatedProcedures([]);
             return;
         }
 
         let ignore = false;
 
-        getAssemblyProcedures(version)
+        getAssemblyProcedures(selectedSpecificationName)
             .then((procedures) => {
                 if (ignore) {
                     return;
@@ -280,7 +271,7 @@ const AssemblyStagesWorkspace = () => {
         return () => {
             ignore = true;
         };
-    }, [specificationVersion]);
+    }, [specificationName]);
 
     const normativeTotal = useMemo(() => createdProcedures.reduce((sum, item) => {
         const normalizedValue = item.normative.replace(/\s+/g, '').replace(',', '.');
@@ -327,11 +318,7 @@ const AssemblyStagesWorkspace = () => {
 
         try {
             const parsedTable = await parseTableFromExcel(file);
-            const extractedVersion = extractVersionFromFileName(file.name);
-
-            setFileName(file.name);
             setSpecificationName(file.name);
-            setSpecificationVersion(extractedVersion);
             setTableColumns(parsedTable.columns);
             setTopRows([]);
             setBottomRows(parsedTable.rows);
@@ -371,14 +358,51 @@ const AssemblyStagesWorkspace = () => {
         setSelectedTopIds(new Set());
     };
 
+
+    const handleExportExcel = async () => {
+        if (createdProcedures.length === 0) {
+            alert('Нет созданных нарядов для выгрузки.');
+            return;
+        }
+
+        try {
+            const XLSX = await ensureSheetJs();
+            const workbook = XLSX.utils.book_new();
+
+            const ordersRows = [
+                ['№', 'Название процедуры', 'Место', 'Норматив, с'],
+                ...createdProcedures.map((item, index) => [index + 1, item.name, item.place, item.normative])
+            ];
+
+            XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(ordersRows), 'Список нарядов');
+
+            createdProcedures.forEach((item, index) => {
+                const detailsRows = [
+                    [item.name || DEFAULT_PROCEDURE_TITLE],
+                    ['Поз', 'Обозначение', 'Наименование', 'Количество'],
+                    ...(item.details.length > 0
+                        ? item.details.map((detail) => [detail.poz || '', detail.designation || '', detail.name || '', detail.quantity || ''])
+                        : [['', '', 'Нет деталей', '']])
+                ];
+
+                const sheetName = String(index + 1).slice(0, 31);
+                XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(detailsRows), sheetName);
+            });
+
+            const exportName = specificationName.trim() || 'assembly-stages';
+            XLSX.writeFile(workbook, `${exportName}.xlsx`);
+        } catch {
+            alert('Не удалось создать Excel-файл.');
+        }
+    };
+
     const handleCreateProcedure = async () => {
         const preparedName = procedureName.trim();
         const preparedPlace = place.trim();
         const preparedNormative = normative.trim();
-        const preparedSpecificationVersion = specificationVersion.trim();
-        const preparedSpecificationName = specificationName.trim() || fileName;
+        const preparedSpecificationName = specificationName.trim();
 
-        if (!preparedName || !preparedPlace || !preparedNormative || !preparedSpecificationVersion) {
+        if (!preparedName || !preparedPlace || !preparedNormative || !preparedSpecificationName) {
             return;
         }
 
@@ -403,7 +427,6 @@ const AssemblyStagesWorkspace = () => {
             setIsSavingProcedure(true);
             const saved = await createAssemblyProcedure({
                 specificationName: preparedSpecificationName,
-                specificationVersion: preparedSpecificationVersion,
                 procedureName: preparedName,
                 place: preparedPlace,
                 normative: preparedNormative,
@@ -427,8 +450,7 @@ const AssemblyStagesWorkspace = () => {
         <section className="assembly-stages-layout">
             <header className="assembly-stages-toolbar">
                 <button type="button" className="assembly-stages-upload-btn" onClick={() => fileInputRef.current?.click()}>📥 Загрузить спецификацию</button>
-                <span className="assembly-stages-upload-mode">Алгоритм: Загрузить Excel файл</span>
-                <span className="assembly-stages-file-name">{fileName}</span>
+                <button type="button" onClick={handleExportExcel}>📊 Создать Excel</button>
 
                 <input
                     ref={fileInputRef}
@@ -478,14 +500,6 @@ const AssemblyStagesWorkspace = () => {
                         type="text"
                         value={specificationName}
                         onChange={(event) => setSpecificationName(event.target.value)}
-                    />
-
-                    <label htmlFor="specification-version">Версия спецификации</label>
-                    <input
-                        id="specification-version"
-                        type="text"
-                        value={specificationVersion}
-                        onChange={(event) => setSpecificationVersion(event.target.value)}
                     />
 
                     <label htmlFor="procedure-name">Введите название процедуры</label>
@@ -550,8 +564,8 @@ const AssemblyStagesWorkspace = () => {
                             </tbody>
                             <tfoot>
                                 <tr>
-                                    <td colSpan={3}>Итого норматив</td>
-                                    <td>{formatNormativeTotal(normativeTotal)}</td>
+                                    <td colSpan={3}>Общий норматив, мин</td>
+                                    <td>{formatNormativeTotalMinutes(normativeTotal)}</td>
                                 </tr>
                             </tfoot>
                         </table>

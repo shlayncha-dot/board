@@ -12,7 +12,6 @@ public sealed class AssemblyProcedureDto
 {
     public string Id { get; set; } = string.Empty;
     public string SpecificationName { get; set; } = string.Empty;
-    public string SpecificationVersion { get; set; } = string.Empty;
     public string ProcedureName { get; set; } = string.Empty;
     public string Place { get; set; } = string.Empty;
     public string Normative { get; set; } = string.Empty;
@@ -23,7 +22,6 @@ public sealed class AssemblyProcedureDto
 public sealed class CreateAssemblyProcedureRequest
 {
     public string SpecificationName { get; set; } = string.Empty;
-    public string SpecificationVersion { get; set; } = string.Empty;
     public string ProcedureName { get; set; } = string.Empty;
     public string Place { get; set; } = string.Empty;
     public string Normative { get; set; } = string.Empty;
@@ -32,5 +30,7 @@ public sealed class CreateAssemblyProcedureRequest
 
 internal sealed class AssemblyStagesDatabase
 {
-    public Dictionary<string, List<AssemblyProcedureDto>> ProceduresBySpecificationVersion { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, List<AssemblyProcedureDto>> ProceduresBySpecificationName { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public Dictionary<string, List<AssemblyProcedureDto>>? ProceduresBySpecificationVersion { get; set; }
 }

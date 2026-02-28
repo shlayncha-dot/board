@@ -9,12 +9,12 @@ async function readErrorMessage(response, fallback) {
     }
 }
 
-export async function getAssemblyProcedures(specificationVersion) {
-    if (!specificationVersion?.trim()) {
+export async function getAssemblyProcedures(specificationName) {
+    if (!specificationName?.trim()) {
         return [];
     }
 
-    const response = await fetch(`${API_BASE}?specificationVersion=${encodeURIComponent(specificationVersion.trim())}`);
+    const response = await fetch(`${API_BASE}?specificationName=${encodeURIComponent(specificationName.trim())}`);
 
     if (!response.ok) {
         throw new Error(await readErrorMessage(response, 'Не удалось загрузить процедуры сборки.'));

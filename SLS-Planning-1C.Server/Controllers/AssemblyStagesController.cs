@@ -15,21 +15,21 @@ public sealed class AssemblyStagesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<AssemblyProcedureDto>>> GetBySpecificationVersion([FromQuery] string specificationVersion, CancellationToken cancellationToken)
+    public async Task<ActionResult<IReadOnlyList<AssemblyProcedureDto>>> GetBySpecificationName([FromQuery] string specificationName, CancellationToken cancellationToken)
     {
-        var procedures = await _store.GetBySpecificationVersionAsync(specificationVersion, cancellationToken);
+        var procedures = await _store.GetBySpecificationNameAsync(specificationName, cancellationToken);
         return Ok(procedures);
     }
 
     [HttpPost]
     public async Task<ActionResult<AssemblyProcedureDto>> CreateProcedure([FromBody] CreateAssemblyProcedureRequest request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request?.SpecificationVersion)
+        if (string.IsNullOrWhiteSpace(request?.SpecificationName)
             || string.IsNullOrWhiteSpace(request.ProcedureName)
             || string.IsNullOrWhiteSpace(request.Place)
             || string.IsNullOrWhiteSpace(request.Normative))
         {
-            return BadRequest(new { message = "Для создания процедуры заполните версию спецификации, название процедуры, место и норматив." });
+            return BadRequest(new { message = "Для создания процедуры заполните название спецификации, название процедуры, место и норматив." });
         }
 
         try

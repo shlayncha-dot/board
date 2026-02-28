@@ -5,6 +5,7 @@ import HeaderBar from './components/HeaderBar';
 import SubMenuSidebar from './components/SubMenuSidebar';
 import MainWorkspace from './components/MainWorkspace';
 import DashboardWorkspace from './components/DashboardWorkspace';
+import UserTouchWorkspace from './components/UserTouchWorkspace';
 import { menuConfig } from './config/menuConfig';
 import { t } from './config/translations';
 import { createUser, getUserByLogin, getUsers, loginUser, updateUserAccess } from './services/userService';
@@ -78,10 +79,10 @@ function App() {
         isAdmin: false
     });
 
-    const isDashboardScreenMode = useMemo(() => {
-        const pathName = window.location.pathname.toLowerCase();
-        return pathName === '/dashboard-screen';
-    }, []);
+    const screenPathName = useMemo(() => window.location.pathname.toLowerCase(), []);
+
+    const isDashboardScreenMode = screenPathName === '/dashboard-screen';
+    const isUserTouchScreenMode = screenPathName === '/user-screen';
 
     const translatedMenu = useMemo(() => {
         return menuConfig.map((item) => ({
@@ -209,6 +210,58 @@ function App() {
         const users = await getUsers(user.login);
         setUsersList(users);
     };
+
+
+    if (isUserTouchScreenMode) {
+        if (!isLoggedIn) {
+            return <LoginScreen lang={lang} savedLogin={savedLogin} onLogin={login} />;
+        }
+
+        if (String(user.role || '').toUpperCase() !== 'USER') {
+            return (
+                <div className="main-layout">
+                    <HeaderBar
+                        lang={lang}
+                        setLang={setLang}
+                        user={user}
+                        showUserMenu={false}
+                        setShowUserMenu={setShowUserMenu}
+                        onOpenAccountSettings={openAccountSettings}
+                        onOpenAdmin={openAdminSettings}
+                        onLogout={logout}
+                        isLoggedIn={true}
+                    />
+
+                    <main className="user-touch-main">
+                        <div className="user-touch-card">
+                            <h2>Доступ запрещён</h2>
+                            <p>Экран USER доступен только для пользователей с ролью USER.</p>
+                        </div>
+                    </main>
+                </div>
+            );
+        }
+
+        return (
+            <div className="main-layout">
+                <HeaderBar
+                    lang={lang}
+                    setLang={setLang}
+                    user={user}
+                    showUserMenu={false}
+                    setShowUserMenu={setShowUserMenu}
+                    onOpenAccountSettings={openAccountSettings}
+                    onOpenAdmin={openAdminSettings}
+                    onLogout={logout}
+                    isLoggedIn={true}
+                />
+
+                <main className="user-touch-main">
+                    <UserTouchWorkspace />
+                </main>
+            </div>
+        );
+    }
 
     if (isDashboardScreenMode) {
         return (

@@ -1742,3 +1742,165 @@
     justify-content: flex-end;
     gap: 8px;
 }
+
+.user-touch-main {
+    flex: 1;
+    padding: 10px 20px 20px;
+    overflow: hidden;
+}
+
+.user-touch-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(280px, 1fr);
+    gap: 16px;
+    height: 100%;
+}
+
+.user-touch-main-column {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 16px;
+    min-height: 0;
+}
+
+.user-touch-side-column {
+    min-height: 0;
+}
+
+.user-touch-card {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 0;
+}
+
+.user-touch-card h2,
+.user-touch-card h3 {
+    margin: 0;
+}
+
+.user-touch-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.user-touch-order-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.user-touch-btn {
+    min-height: 48px;
+    min-width: 120px;
+    padding: 12px 18px;
+    border-radius: 12px;
+    border: 1px solid #d1d5db;
+    background: #fff;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.user-touch-btn--primary {
+    background: #121212;
+    color: #fff;
+    border-color: #121212;
+}
+
+.user-touch-table-scroller {
+    overflow: auto;
+    min-height: 0;
+}
+
+.user-touch-table-scroller--orders {
+    max-height: calc(10 * 52px + 54px);
+}
+
+.user-touch-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 560px;
+}
+
+.user-touch-table th,
+.user-touch-table td {
+    border-bottom: 1px solid #eceff3;
+    text-align: left;
+    padding: 12px;
+    font-size: 18px;
+}
+
+.user-touch-table tbody tr {
+    cursor: pointer;
+}
+
+.user-touch-table tbody tr.is-selected {
+    background: #eef4ff;
+}
+
+.user-touch-summary-card ul {
+    margin: 0;
+    padding-left: 18px;
+    display: grid;
+    gap: 8px;
+}
+
+.user-touch-summary-card p {
+    margin: 0;
+}
+
+.user-touch-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    padding: 20px;
+}
+
+.user-touch-modal {
+    width: min(1100px, 100%);
+    height: min(680px, 100%);
+    border-radius: 16px;
+    background: #fff;
+    display: grid;
+    grid-template-rows: 1fr 4fr auto;
+    gap: 10px;
+    padding: 16px;
+}
+
+.user-touch-modal-route-data,
+.user-touch-modal-drawing {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 12px;
+    overflow: auto;
+}
+
+.user-touch-modal-drawing {
+    display: grid;
+    place-content: center;
+    text-align: center;
+}
+
+@media (max-width: 1024px) {
+    .user-touch-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .user-touch-side-column {
+        display: none;
+    }
+
+    .user-touch-table th,
+    .user-touch-table td {
+        font-size: 16px;
+    }
+}

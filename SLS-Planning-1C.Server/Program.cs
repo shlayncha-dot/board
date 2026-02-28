@@ -6,6 +6,7 @@ using SLS_Planning_1C.Server.Features.Naming;
 using SLS_Planning_1C.Server.Features.RouteSheetSettings;
 using SLS_Planning_1C.Server.Features.Verification;
 using SLS_Planning_1C.Server.Features.Users;
+using SLS_Planning_1C.Server.Features.AssemblyStages;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,6 +43,7 @@ builder.Services.AddSingleton<INamingCredentialsStore, NamingRuntimeCredentialsS
 builder.Services.Configure<NamingApiOptions>(builder.Configuration.GetSection("ExternalApis:Naming"));
 builder.Services.AddSingleton<IUserStore, UserStore>();
 builder.Services.AddSingleton<IRouteSheetSettingsStore, RouteSheetSettingsStore>();
+builder.Services.AddSingleton<IAssemblyStagesStore, AssemblyStagesStore>();
 
 var app = builder.Build();
 

@@ -1,4 +1,5 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createAssemblyProcedure, getAssemblyProcedures } from '../services/assemblyStagesService';
 
 const DEFAULT_PROCEDURE_TITLE = 'Процедура (не задано)';
 const MIN_COLUMN_WIDTH = 72;
@@ -216,6 +217,15 @@ const DataTable = ({
     );
 };
 
+const mapProcedureForView = (item) => ({
+    id: item.id,
+    name: item.procedureName,
+    place: item.place,
+    normative: item.normative
+});
+
+const extractVersionFromFileName = (name) => String(name || '').replace(/\.[^.]+$/, '').trim();
+
 const AssemblyStagesWorkspace = () => {
     const fileInputRef = useRef(null);
 
@@ -224,6 +234,8 @@ const AssemblyStagesWorkspace = () => {
     const [normative, setNormative] = useState('');
     const [createdProcedures, setCreatedProcedures] = useState([]);
     const [fileName, setFileName] = useState('Файл не выбран');
+    const [specificationName, setSpecificationName] = useState('');
+    const [specificationVersion, setSpecificationVersion] = useState('');
 
     const [tableColumns, setTableColumns] = useState([]);
     const [topRows, setTopRows] = useState([]);
@@ -231,6 +243,7 @@ const AssemblyStagesWorkspace = () => {
     const [selectedTopIds, setSelectedTopIds] = useState(new Set());
     const [selectedBottomIds, setSelectedBottomIds] = useState(new Set());
     const [columnWidths, setColumnWidths] = useState({});
+    const [isSavingProcedure, setIsSavingProcedure] = useState(false);
 
     const typeColumnIndex = useMemo(() => findColumnIndex(tableColumns, ['тип']), [tableColumns]);
     const pozColumnIndex = useMemo(() => findColumnIndex(tableColumns, ['поз']), [tableColumns]);
@@ -239,6 +252,35 @@ const AssemblyStagesWorkspace = () => {
         const value = procedureName.trim();
         return value || DEFAULT_PROCEDURE_TITLE;
     }, [procedureName]);
+
+    useEffect(() => {
+        const version = specificationVersion.trim();
+
+        if (!version) {
+            setCreatedProcedures([]);
+            return;
+        }
+
+        let ignore = false;
+
+        getAssemblyProcedures(version)
+            .then((procedures) => {
+                if (ignore) {
+                    return;
+                }
+
+                setCreatedProcedures(procedures.map(mapProcedureForView));
+            })
+            .catch(() => {
+                if (!ignore) {
+                    setCreatedProcedures([]);
+                }
+            });
+
+        return () => {
+            ignore = true;
+        };
+    }, [specificationVersion]);
 
     const normativeTotal = useMemo(() => createdProcedures.reduce((sum, item) => {
         const normalizedValue = item.normative.replace(/\s+/g, '').replace(',', '.');
@@ -285,8 +327,11 @@ const AssemblyStagesWorkspace = () => {
 
         try {
             const parsedTable = await parseTableFromExcel(file);
+            const extractedVersion = extractVersionFromFileName(file.name);
 
             setFileName(file.name);
+            setSpecificationName(file.name);
+            setSpecificationVersion(extractedVersion);
             setTableColumns(parsedTable.columns);
             setTopRows([]);
             setBottomRows(parsedTable.rows);
@@ -326,27 +371,56 @@ const AssemblyStagesWorkspace = () => {
         setSelectedTopIds(new Set());
     };
 
-    const handleCreateProcedure = () => {
+    const handleCreateProcedure = async () => {
         const preparedName = procedureName.trim();
         const preparedPlace = place.trim();
         const preparedNormative = normative.trim();
+        const preparedSpecificationVersion = specificationVersion.trim();
+        const preparedSpecificationName = specificationName.trim() || fileName;
 
-        if (!preparedName || !preparedPlace || !preparedNormative) {
+        if (!preparedName || !preparedPlace || !preparedNormative || !preparedSpecificationVersion) {
             return;
         }
 
-        setCreatedProcedures((prev) => [
-            ...prev,
-            {
-                id: `procedure-${Date.now()}-${prev.length + 1}`,
-                name: preparedName,
-                place: preparedPlace,
-                normative: preparedNormative
-            }
-        ]);
+        if (topRows.length === 0) {
+            alert('В верхней таблице нет деталей для сохранения процедуры.');
+            return;
+        }
 
-        setPlace('');
-        setNormative('');
+        const pozIndex = findColumnIndex(tableColumns, ['поз']);
+        const designationIndex = findColumnIndex(tableColumns, ['обозначение']);
+        const nameIndex = findColumnIndex(tableColumns, ['наименование']);
+        const quantityIndex = findColumnIndex(tableColumns, ['количество', 'кол-во']);
+
+        const details = topRows.map((row) => ({
+            poz: pozIndex >= 0 ? row.values[pozIndex] || '' : '',
+            designation: designationIndex >= 0 ? row.values[designationIndex] || '' : '',
+            name: nameIndex >= 0 ? row.values[nameIndex] || '' : '',
+            quantity: quantityIndex >= 0 ? row.values[quantityIndex] || '' : ''
+        }));
+
+        try {
+            setIsSavingProcedure(true);
+            const saved = await createAssemblyProcedure({
+                specificationName: preparedSpecificationName,
+                specificationVersion: preparedSpecificationVersion,
+                procedureName: preparedName,
+                place: preparedPlace,
+                normative: preparedNormative,
+                details
+            });
+
+            setCreatedProcedures((prev) => [...prev, mapProcedureForView(saved)]);
+            setTopRows([]);
+            setSelectedTopIds(new Set());
+            setProcedureName('');
+            setPlace('');
+            setNormative('');
+        } catch (error) {
+            alert(error.message || 'Не удалось сохранить процедуру.');
+        } finally {
+            setIsSavingProcedure(false);
+        }
     };
 
     return (
@@ -398,6 +472,22 @@ const AssemblyStagesWorkspace = () => {
                 </div>
 
                 <aside className="assembly-stages-right-pane">
+                    <label htmlFor="specification-name">Название спецификации</label>
+                    <input
+                        id="specification-name"
+                        type="text"
+                        value={specificationName}
+                        onChange={(event) => setSpecificationName(event.target.value)}
+                    />
+
+                    <label htmlFor="specification-version">Версия спецификации</label>
+                    <input
+                        id="specification-version"
+                        type="text"
+                        value={specificationVersion}
+                        onChange={(event) => setSpecificationVersion(event.target.value)}
+                    />
+
                     <label htmlFor="procedure-name">Введите название процедуры</label>
                     <input
                         id="procedure-name"
@@ -424,7 +514,7 @@ const AssemblyStagesWorkspace = () => {
                         />
                     </div>
 
-                    <button type="button" onClick={handleCreateProcedure} className="assembly-stages-create-btn">Создать</button>
+                    <button type="button" onClick={handleCreateProcedure} disabled={isSavingProcedure} className="assembly-stages-create-btn">Создать</button>
 
                     <div className="assembly-stages-created-table-wrap">
                         <table className="assembly-stages-table">

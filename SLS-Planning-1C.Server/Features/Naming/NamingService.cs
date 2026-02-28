@@ -96,11 +96,13 @@ public sealed class NamingService : INamingService
 
     private async Task<HttpResponseMessage> SendWithTlsFallbackAsync(string payloadJson, CancellationToken cancellationToken)
     {
+        var allowInsecureFallback = _options.IgnoreSslErrors || IsLocalServerEnvironment();
         var attempts = new[]
         {
             new HttpTlsAttempt("SystemDefault", null),
             new HttpTlsAttempt("TLS1.3", SslProtocols.Tls13),
-            new HttpTlsAttempt("TLS1.2", SslProtocols.Tls12)
+            new HttpTlsAttempt("TLS1.2", SslProtocols.Tls12),
+            new HttpTlsAttempt("TLS1.2-Insecure", SslProtocols.Tls12, ignoreSslErrors: allowInsecureFallback)
         };
 
         Exception? lastError = null;
@@ -116,7 +118,7 @@ public sealed class NamingService : INamingService
                     return await _httpClient.SendAsync(request, cancellationToken);
                 }
 
-                using var handler = CreateHttpHandler(attempt.Protocol);
+                using var handler = CreateHttpHandler(attempt.Protocol, attempt.IgnoreSslErrors);
                 using var client = new HttpClient(handler, disposeHandler: true);
                 return await client.SendAsync(request, cancellationToken);
             }
@@ -144,7 +146,7 @@ public sealed class NamingService : INamingService
         return request;
     }
 
-    private HttpClientHandler CreateHttpHandler(SslProtocols? protocol)
+    private HttpClientHandler CreateHttpHandler(SslProtocols? protocol, bool ignoreSslErrors = false)
     {
         var handler = new HttpClientHandler();
 
@@ -153,12 +155,19 @@ public sealed class NamingService : INamingService
             handler.SslProtocols = protocol.Value;
         }
 
-        if (_options.IgnoreSslErrors)
+        if (_options.IgnoreSslErrors || ignoreSslErrors)
         {
             handler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
         }
 
         return handler;
+    }
+
+    private static bool IsLocalServerEnvironment()
+    {
+        var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+        return string.Equals(environment, "Development", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(environment, "Local", StringComparison.OrdinalIgnoreCase);
     }
 
     private void AddBasicAuthorizationHeaderIfConfigured(HttpRequestMessage request)
@@ -234,7 +243,7 @@ public sealed class NamingService : INamingService
     }
 }
 
-public sealed record HttpTlsAttempt(string Name, SslProtocols? Protocol);
+public sealed record HttpTlsAttempt(string Name, SslProtocols? Protocol, bool IgnoreSslErrors = false);
 
 public sealed class NamingServiceException : Exception
 {

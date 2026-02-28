@@ -80,6 +80,9 @@ const KDCheckView = ({
     namingIssuesByRowId,
     namingTargetColumnKey,
     namingReport,
+    namingLogs,
+    isNamingLogOpen,
+    onCloseNamingLog,
     verificationIssuesByRowId,
     verificationReport,
     onCloseVerificationReport,
@@ -391,6 +394,30 @@ const KDCheckView = ({
             {namingReport && (
                 <div className={`naming-report ${namingReport.isSuccess ? 'success' : 'error'}`}>
                     {namingReport.message}
+                </div>
+            )}
+
+            {isNamingLogOpen && (
+                <div className="verification-report-overlay" role="dialog" aria-modal="true">
+                    <div className="verification-report-modal naming-log-modal">
+                        <div className="verification-report-header">
+                            <h3>Логи проверки Нейминг</h3>
+                            <div className="verification-report-actions">
+                                <button type="button" onClick={onCloseNamingLog}>Закрыть</button>
+                            </div>
+                        </div>
+                        <div className="verification-report-body">
+                            {(namingLogs || []).length ? (
+                                <ol className="naming-log-list">
+                                    {namingLogs.map((entry, index) => (
+                                        <li key={`${entry}-${index}`}>{entry}</li>
+                                    ))}
+                                </ol>
+                            ) : (
+                                <p>Логи пока отсутствуют.</p>
+                            )}
+                        </div>
+                    </div>
                 </div>
             )}
 

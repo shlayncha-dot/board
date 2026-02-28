@@ -1,5 +1,16 @@
 const ALLOWED_TYPES = new Set(['компл', 'крепеж', 'крепеж_св']);
 
+const normalizeType = (value) => String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    .replace(/\s+/g, '_')
+    .replace(/[.,;:!?]+/g, '');
+
+const normalizeAllowedType = (value) => normalizeType(value).replace(/-+/g, '_');
+
+const ALLOWED_TYPES_NORMALIZED = new Set(Array.from(ALLOWED_TYPES, normalizeAllowedType));
+
 export const extractRowsForNamingCheck = (rows, tableColumns) => {
     const nameColumn = tableColumns.find((column) => column.label.toLowerCase().includes('наимен'));
     const typeColumn = tableColumns.find((column) => column.label.toLowerCase().includes('тип'));
@@ -24,9 +35,9 @@ export const extractRowsForNamingCheck = (rows, tableColumns) => {
         .map((row) => ({
             rowId: String(row.id),
             name: String(row[nameColumn.key] ?? '').trim(),
-            type: String(row[typeColumn.key] ?? '').trim().toLowerCase()
+            type: normalizeType(row[typeColumn.key])
         }))
-        .filter((row) => row.name && ALLOWED_TYPES.has(row.type))
+        .filter((row) => row.name && ALLOWED_TYPES_NORMALIZED.has(normalizeAllowedType(row.type)))
         .map(({ rowId, name }) => ({ rowId, name }));
 
     return {

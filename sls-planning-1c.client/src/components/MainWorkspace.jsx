@@ -49,7 +49,7 @@ const MainWorkspace = ({
         return <DashboardWorkspace lang={lang} />;
     }
     if (activeTab === 0 && settingsContext === 'none') {
-        return <DesignDocsWorkspace activeSubItem={activeSubItem} />;
+        return <DesignDocsWorkspace activeSubItem={activeSubItem} namingLogin={user.login} />;
     }
 
     if (activeTab === 1 && activeSubItem === 0 && settingsContext === 'none') {

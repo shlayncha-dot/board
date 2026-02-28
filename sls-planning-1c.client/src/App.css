@@ -844,6 +844,18 @@
     color: #b23636;
 }
 
+.naming-log-modal {
+    max-width: 760px;
+}
+
+.naming-log-list {
+    margin: 0;
+    padding-left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
 .kd-table td {
     user-select: text;
     cursor: text;

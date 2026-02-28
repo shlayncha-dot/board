@@ -9,6 +9,7 @@ import UserTouchWorkspace from './components/UserTouchWorkspace';
 import { menuConfig } from './config/menuConfig';
 import { t } from './config/translations';
 import { createUser, getUserByLogin, getUsers, loginUser, updateUserAccess } from './services/userService';
+import { saveNamingCredentials } from './services/namingAuthService';
 
 const STORAGE_KEY = 'sls-auth-data';
 
@@ -182,6 +183,7 @@ function App() {
 
     const login = async ({ login: loginName, password, rememberMe }) => {
         const authenticatedUser = await loginUser(loginName, password);
+        await saveNamingCredentials({ username: loginName, password });
         setUser(authenticatedUser);
         setIsLoggedIn(true);
         setSettingsContext('none');

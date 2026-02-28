@@ -13,10 +13,6 @@ public interface INamingService
 
 public sealed class NamingService : INamingService
 {
-    // Временный hardcode тестовых учетных данных 1С по запросу.
-    private const string HardcodedUsername = "Andrew Chevchen";
-    private const string HardcodedPassword = "Ukrplat0312";
-
     private readonly HttpClient _httpClient;
     private readonly NamingApiOptions _options;
     private readonly INamingCredentialsStore _credentialsStore;
@@ -128,11 +124,6 @@ public sealed class NamingService : INamingService
 
     private (string Username, string Password)? ResolveCredentials()
     {
-        if (!string.IsNullOrWhiteSpace(HardcodedUsername) && !string.IsNullOrWhiteSpace(HardcodedPassword))
-        {
-            return (HardcodedUsername, HardcodedPassword);
-        }
-
         if (_credentialsStore.TryGet(out var runtimeCredentials)
             && !string.IsNullOrWhiteSpace(runtimeCredentials.Username)
             && !string.IsNullOrWhiteSpace(runtimeCredentials.Password))

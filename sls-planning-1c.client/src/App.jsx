@@ -217,7 +217,7 @@ function App() {
             return <LoginScreen lang={lang} savedLogin={savedLogin} onLogin={login} />;
         }
 
-        if (String(user.role || '').toUpperCase() !== 'USER') {
+        if (String(user.role || '').toUpperCase() !== 'OPER') {
             return (
                 <div className="main-layout">
                     <HeaderBar
@@ -235,7 +235,7 @@ function App() {
                     <main className="user-touch-main">
                         <div className="user-touch-card">
                             <h2>Доступ запрещён</h2>
-                            <p>Экран USER доступен только для пользователей с ролью USER.</p>
+                            <p>Экран USER доступен только для пользователей с ролью Oper.</p>
                         </div>
                     </main>
                 </div>

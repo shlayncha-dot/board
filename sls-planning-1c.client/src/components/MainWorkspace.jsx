@@ -8,6 +8,7 @@ import TechnologistRouteSheetSettings from './TechnologistRouteSheetSettings';
 import TechnologistRouteSheetsWorkspace from './TechnologistRouteSheetsWorkspace';
 import SpecificationUploadView from './designDocs/SpecificationUploadView';
 import ProductionOrderWorkspace from './ProductionOrderWorkspace';
+import AssemblyStagesWorkspace from './AssemblyStagesWorkspace';
 
 const MainWorkspace = ({
     lang,
@@ -76,6 +77,10 @@ const MainWorkspace = ({
 
     if (activeTab === 3 && activeSubItem === 0 && settingsContext === 'none') {
         return <ProductionOrderWorkspace lang={lang} />;
+    }
+
+    if (activeTab === 4 && activeSubItem === 2 && settingsContext === 'none') {
+        return <AssemblyStagesWorkspace />;
     }
 
     return (

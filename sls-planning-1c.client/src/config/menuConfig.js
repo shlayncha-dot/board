@@ -17,7 +17,7 @@ export const menuConfig = [
   },
   {
     labelKey: 'menu.assembly',
-    subMenuKeys: ['submenu.workPlan', 'submenu.assemblyForming', 'common.settings', 'common.shift', 'common.report', 'common.superMarket']
+    subMenuKeys: ['submenu.workPlan', 'submenu.assemblyForming', 'submenu.assemblyStages', 'common.settings', 'common.shift', 'common.report', 'common.superMarket']
   },
   {
     labelKey: 'menu.master',

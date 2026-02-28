@@ -13,7 +13,7 @@ export const menuConfig = [
   },
   {
     labelKey: 'menu.production',
-    subMenuKeys: ['submenu.stockBalance', 'submenu.workPlan', 'submenu.normCard', 'common.settings', 'submenu.defectIsolator', 'common.report', 'common.superMarket']
+    subMenuKeys: ['submenu.productionOrder', 'submenu.stockBalance', 'submenu.workPlan', 'submenu.normCard', 'common.settings', 'submenu.defectIsolator', 'common.report', 'common.superMarket']
   },
   {
     labelKey: 'menu.assembly',

@@ -1,4 +1,6 @@
+using Microsoft.Extensions.Options;
 using System.Text.Json.Serialization;
+using System.Net.Http;
 using SLS_Planning_1C.Server.Features.FileIndexing;
 using SLS_Planning_1C.Server.Features.Naming;
 using SLS_Planning_1C.Server.Features.RouteSheetSettings;
@@ -19,7 +21,23 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton<IFileIndexStore, FileIndexStore>();
 builder.Services.AddScoped<IVerificationService, VerificationService>();
 builder.Services.AddSingleton<IVerificationSettingsStore, VerificationSettingsStore>();
-builder.Services.AddHttpClient<INamingService, NamingService>();
+builder.Services.AddHttpClient<INamingService, NamingService>()
+    .ConfigurePrimaryHttpMessageHandler(serviceProvider =>
+    {
+        var options = serviceProvider
+            .GetRequiredService<IOptions<NamingApiOptions>>()
+            .Value;
+
+        if (!options.IgnoreSslErrors)
+        {
+            return new HttpClientHandler();
+        }
+
+        return new HttpClientHandler
+        {
+            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+        };
+    });
 builder.Services.AddSingleton<INamingCredentialsStore, NamingRuntimeCredentialsStore>();
 builder.Services.Configure<NamingApiOptions>(builder.Configuration.GetSection("ExternalApis:Naming"));
 builder.Services.AddSingleton<IUserStore, UserStore>();

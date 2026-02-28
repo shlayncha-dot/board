@@ -47,9 +47,10 @@ const toSectionDetails = (settings, sectionName) => {
     };
 };
 
-const buildStepItems = () => Array.from({ length: 15 }, (_, index) => `Step ${index + 1}`);
+const buildStepItems = () => Array.from({ length: 12 }, (_, index) => index + 1);
 
 const TechnologistRouteSheetsWorkspace = () => {
+    const currentStep = 1;
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [selectedProject, setSelectedProject] = useState('');
     const [selectedSpecification, setSelectedSpecification] = useState('');
@@ -190,14 +191,15 @@ const TechnologistRouteSheetsWorkspace = () => {
                 <aside className="route-sheets-sop-area">
                     <h3>СОП</h3>
 
-                    <div className="sop-step-list" aria-label="Step list">
-                        {buildStepItems().map((stepName) => (
-                            <label key={stepName} className="sop-static-radio-item">
-                                <input type="radio" checked readOnly tabIndex={-1} />
-                                <span>{stepName}</span>
+                    <fieldset className="sop-step-list" aria-label="Step list">
+                        <legend>Step</legend>
+                        {buildStepItems().map((stepNumber) => (
+                            <label key={stepNumber} className="sop-static-radio-item">
+                                <input type="radio" checked={stepNumber === currentStep} disabled tabIndex={-1} />
+                                <span>{stepNumber}</span>
                             </label>
                         ))}
-                    </div>
+                    </fieldset>
 
                     <div className="sop-settings-grid">
                         <div className="sop-settings-column">
@@ -221,7 +223,7 @@ const TechnologistRouteSheetsWorkspace = () => {
                         </div>
 
                         <div className="sop-settings-column">
-                            <h4>Оборудование</h4>
+                            <h4>Оборудование/Технология</h4>
                             <div className="sop-options-list">
                                 {equipmentOptions.length === 0 ? (
                                     <p className="sop-empty-note">Нет данных в настройках маршрутного листа.</p>
@@ -232,7 +234,9 @@ const TechnologistRouteSheetsWorkspace = () => {
                                     </label>
                                 ))}
                             </div>
+                        </div>
 
+                        <div className="sop-settings-column">
                             <h4>Параметры</h4>
                             <div className="sop-options-list">
                                 {sectionDetails.parameters.length === 0 ? (
@@ -244,7 +248,9 @@ const TechnologistRouteSheetsWorkspace = () => {
                                     </label>
                                 ))}
                             </div>
+                        </div>
 
+                        <div className="sop-settings-column">
                             <h4>QC</h4>
                             <div className="sop-options-list">
                                 {sectionDetails.qc.length === 0 ? (

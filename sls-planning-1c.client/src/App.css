@@ -1546,7 +1546,7 @@
 .route-sheets-sop-area {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
     overflow: auto;
 }
 
@@ -1556,45 +1556,76 @@
 }
 
 .sop-step-list {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 6px;
-    padding: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    padding: 6px 8px 8px;
     border: 1px solid #ddd;
     border-radius: 10px;
     background: #fff;
     pointer-events: none;
+    margin: 0;
+}
+
+.sop-step-list legend {
+    padding: 0 4px;
+    font-size: 12px;
+    font-weight: 600;
 }
 
 .sop-static-radio-item,
 .sop-option-row {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 13px;
+    gap: 6px;
+    font-size: 12px;
+    line-height: 1.2;
 }
 
 .sop-settings-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+        'sections equipment'
+        'parameters qc';
     gap: 8px;
+}
+
+.sop-settings-grid .sop-settings-column:nth-child(1) {
+    grid-area: sections;
+}
+
+.sop-settings-grid .sop-settings-column:nth-child(2) {
+    grid-area: equipment;
+}
+
+.sop-settings-grid .sop-settings-column:nth-child(3) {
+    grid-area: parameters;
+}
+
+.sop-settings-grid .sop-settings-column:nth-child(4) {
+    grid-area: qc;
 }
 
 .sop-settings-column {
     border: 1px solid #ddd;
     border-radius: 10px;
     background: #fff;
-    padding: 8px;
+    padding: 6px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
+}
+
+.sop-settings-column h4 {
+    font-size: 12px;
 }
 
 .sop-options-list {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    max-height: 180px;
+    gap: 4px;
+    max-height: 140px;
     overflow: auto;
 }
 

@@ -2204,8 +2204,8 @@
 }
 
 .assembly-stages-created-table-wrap {
-    border: 1px solid #cbd5e1;
-    border-radius: 8px;
+    border: 1px dashed #9a9a9a;
+    border-radius: 14px;
     overflow: auto;
     min-height: 0;
     min-width: 0;
@@ -2213,19 +2213,21 @@
 }
 
 .assembly-stages-table-card {
-    border: 1px solid #cbd5e1;
-    border-radius: 8px;
-    padding: 4px;
+    border: 1px dashed #9a9a9a;
+    border-radius: 14px;
+    padding: 0;
     display: flex;
     flex-direction: column;
     min-height: 0;
     min-width: 0;
+    overflow: hidden;
 }
 
 .assembly-stages-table-title {
     font-weight: 600;
-    font-size: 12px;
-    margin-bottom: 4px;
+    font-size: 13px;
+    padding: 10px;
+    border-bottom: 1px dashed #9a9a9a;
 }
 
 .assembly-stages-table-scroll {
@@ -2236,21 +2238,37 @@
 }
 
 .assembly-stages-table {
-    width: max-content;
+    width: 100%;
     min-width: 100%;
     border-collapse: collapse;
-    font-size: 11px;
+    table-layout: fixed;
 }
 
 .assembly-stages-table th,
 .assembly-stages-table td {
-    border: 1px solid #e2e8f0;
-    padding: 2px 4px;
+    border-right: 1px dashed #9a9a9a;
+    border-bottom: 1px dashed #9a9a9a;
+    padding: 10px;
     text-align: left;
-    max-width: 220px;
+    font-size: 13px;
     white-space: nowrap;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.assembly-stages-table th {
+    position: sticky;
+    top: 0;
+    background: #000;
+    color: #fff;
+    z-index: 1;
+    border-bottom: 1px dashed #666;
+}
+
+.assembly-stages-table th:last-child,
+.assembly-stages-table td:last-child {
+    border-right: none;
 }
 
 .assembly-stages-checkbox-col {

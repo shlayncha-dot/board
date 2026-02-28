@@ -1840,6 +1840,41 @@
     gap: 12px;
 }
 
+.user-touch-info-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    min-height: 34px;
+    padding: 4px 10px;
+    border: 1px solid #e6ebf1;
+    border-radius: 10px;
+    background: #f8fafc;
+    font-size: 13px;
+    color: #374151;
+}
+
+.user-touch-network-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+}
+
+.user-touch-network-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: #ef4444;
+}
+
+.user-touch-network-status.is-online .user-touch-network-dot {
+    background: #22c55e;
+}
+
+.user-touch-section-title {
+    font-size: 0.7rem;
+}
+
 .user-touch-order-actions {
     display: flex;
     gap: 8px;
@@ -1883,6 +1918,12 @@
     text-align: left;
     padding: 12px;
     font-size: 18px;
+}
+
+.user-touch-table--compact th,
+.user-touch-table--compact td {
+    padding-top: 7px;
+    padding-bottom: 7px;
 }
 
 .user-touch-table tbody tr {

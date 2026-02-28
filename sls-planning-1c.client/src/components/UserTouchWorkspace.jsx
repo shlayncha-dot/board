@@ -26,6 +26,7 @@ const mockParts = [
 const UserTouchWorkspace = () => {
     const [selectedOrderId, setSelectedOrderId] = useState(null);
     const [selectedPart, setSelectedPart] = useState(null);
+    const [isOnline, setIsOnline] = useState(() => navigator.onLine);
 
     const selectedOrder = useMemo(
         () => mockOrders.find((item) => item.id === selectedOrderId) || null,
@@ -40,20 +41,40 @@ const UserTouchWorkspace = () => {
         }
     }, []);
 
+    useEffect(() => {
+        const handleOnline = () => setIsOnline(true);
+        const handleOffline = () => setIsOnline(false);
+
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, []);
+
 
     return (
         <div className="user-touch-layout">
             <section className="user-touch-main-column">
                 <article className="user-touch-card">
+                    <div className="user-touch-info-bar">
+                        <span>Операторский экран • Полученные наряды</span>
+                        <span className={`user-touch-network-status ${isOnline ? 'is-online' : 'is-offline'}`}>
+                            <span className="user-touch-network-dot" aria-hidden="true" />
+                            {isOnline ? 'Online' : 'Offline'}
+                        </span>
+                    </div>
                     <header className="user-touch-card-header">
-                        <h2>Полуночные наряды</h2>
+                        <h2 className="user-touch-section-title">Полученные наряды</h2>
                         <div className="user-touch-order-actions">
                             <button type="button" className="user-touch-btn user-touch-btn--primary">Взять наряд</button>
                         </div>
                     </header>
 
                     <div className="user-touch-table-scroller user-touch-table-scroller--orders">
-                        <table className="user-touch-table">
+                        <table className="user-touch-table user-touch-table--compact">
                             <thead>
                                 <tr>
                                     <th>Наряд</th>
@@ -82,7 +103,7 @@ const UserTouchWorkspace = () => {
 
                 <article className="user-touch-card">
                     <header className="user-touch-card-header">
-                        <h2>Детали текущего наряда</h2>
+                        <h2 className="user-touch-section-title">Детали текущего наряда</h2>
                     </header>
 
                     <div className="user-touch-table-scroller">

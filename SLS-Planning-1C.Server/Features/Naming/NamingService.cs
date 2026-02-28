@@ -102,7 +102,7 @@ public sealed class NamingService : INamingService
             new HttpTlsAttempt("SystemDefault", null),
             new HttpTlsAttempt("TLS1.3", SslProtocols.Tls13),
             new HttpTlsAttempt("TLS1.2", SslProtocols.Tls12),
-            new HttpTlsAttempt("TLS1.2-Insecure", SslProtocols.Tls12, ignoreSslErrors: allowInsecureFallback)
+            new HttpTlsAttempt("TLS1.2-Insecure", SslProtocols.Tls12, IgnoreSslErrors: allowInsecureFallback)
         };
 
         Exception? lastError = null;

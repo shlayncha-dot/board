@@ -1479,6 +1479,17 @@
 .route-sheets-topbar {
     display: flex;
     justify-content: flex-start;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.route-sheets-search {
+    min-width: 220px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 13px;
 }
 
 .route-sheets-main-grid {
@@ -1550,9 +1561,10 @@
     overflow: auto;
 }
 
-.route-sheets-sop-area h3,
-.route-sheets-sop-area h4 {
+.route-sheets-sop-area h3 {
     margin: 0;
+    font-size: 12px;
+    font-weight: 600;
 }
 
 .sop-step-list {
@@ -1587,7 +1599,8 @@
     grid-template-columns: 1fr 1fr;
     grid-template-areas:
         'sections equipment'
-        'parameters qc';
+        'parameters qc'
+        'comment comment';
     gap: 8px;
 }
 
@@ -1615,10 +1628,13 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+    margin: 0;
 }
 
-.sop-settings-column h4 {
+.sop-settings-column legend {
+    padding: 0 4px;
     font-size: 12px;
+    font-weight: 600;
 }
 
 .sop-options-list {
@@ -1633,6 +1649,45 @@
     margin: 0;
     font-size: 12px;
     color: #666;
+}
+
+.sop-comment-block {
+    grid-area: comment;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    background: #fff;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.sop-comment-block label {
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.sop-comment-block textarea {
+    resize: vertical;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 6px 8px;
+    font-size: 12px;
+    font-family: inherit;
+}
+
+.sop-nav-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.sop-icon-btn {
+    border: 1px solid #ccc;
+    background: #fff;
+    border-radius: 8px;
+    padding: 4px 8px;
+    font-size: 12px;
+    cursor: pointer;
 }
 
 .route-sheets-dialog-overlay {

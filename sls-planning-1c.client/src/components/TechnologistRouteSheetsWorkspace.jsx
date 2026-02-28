@@ -64,6 +64,8 @@ const TechnologistRouteSheetsWorkspace = () => {
         sectionDetailsByName: {}
     });
     const [selectedSopSection, setSelectedSopSection] = useState('');
+    const [tableSearch, setTableSearch] = useState('');
+    const [commentText, setCommentText] = useState('');
     const [loadError, setLoadError] = useState('');
 
     const projectOptions = Object.keys(specificationCatalog);
@@ -117,6 +119,16 @@ const TechnologistRouteSheetsWorkspace = () => {
         return specificationCatalog[appliedProject]?.[appliedSpecification] || [];
     }, [appliedProject, appliedSpecification]);
 
+    const filteredSpecificationRows = useMemo(() => {
+        const query = tableSearch.trim().toLowerCase();
+        if (!query) {
+            return activeSpecificationRows;
+        }
+
+        return activeSpecificationRows.filter((row) => [row.position, row.name, row.quantity, row.unit]
+            .some((value) => String(value).toLowerCase().includes(query)));
+    }, [activeSpecificationRows, tableSearch]);
+
     const openDialog = () => {
         setSelectedProject(appliedProject || projectOptions[0] || '');
         const initialProject = appliedProject || projectOptions[0] || '';
@@ -150,6 +162,15 @@ const TechnologistRouteSheetsWorkspace = () => {
         <div className="route-sheets-page">
             <div className="route-sheets-topbar">
                 <button type="button" className="save-btn" onClick={openDialog}>Загрузить спецификацию</button>
+                <button type="button" className="cancel-btn">Создать таблицу</button>
+                <button type="button" className="cancel-btn">Создать PDF</button>
+                <input
+                    type="search"
+                    className="route-sheets-search"
+                    placeholder="Поиск по таблице"
+                    value={tableSearch}
+                    onChange={(event) => setTableSearch(event.target.value)}
+                />
             </div>
 
             <div className="route-sheets-main-grid">
@@ -171,11 +192,15 @@ const TechnologistRouteSheetsWorkspace = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {activeSpecificationRows.length === 0 ? (
+                                {filteredSpecificationRows.length === 0 ? (
                                     <tr>
-                                        <td colSpan={4} className="route-sheets-empty-cell">Выберите проект и спецификацию через кнопку «Загрузить спецификацию».</td>
+                                        <td colSpan={4} className="route-sheets-empty-cell">
+                                            {activeSpecificationRows.length === 0
+                                                ? 'Выберите проект и спецификацию через кнопку «Загрузить спецификацию».'
+                                                : 'По вашему запросу записи не найдены.'}
+                                        </td>
                                     </tr>
-                                ) : activeSpecificationRows.map((row) => (
+                                ) : filteredSpecificationRows.map((row) => (
                                     <tr key={`${row.position}-${row.name}`}>
                                         <td>{row.position}</td>
                                         <td>{row.name}</td>
@@ -202,8 +227,8 @@ const TechnologistRouteSheetsWorkspace = () => {
                     </fieldset>
 
                     <div className="sop-settings-grid">
-                        <div className="sop-settings-column">
-                            <h4>Секции</h4>
+                        <fieldset className="sop-settings-column">
+                            <legend>Секции</legend>
                             <div className="sop-options-list">
                                 {sectionOptions.length === 0 ? (
                                     <p className="sop-empty-note">Нет данных в настройках маршрутного листа.</p>
@@ -220,10 +245,10 @@ const TechnologistRouteSheetsWorkspace = () => {
                                     </label>
                                 ))}
                             </div>
-                        </div>
+                        </fieldset>
 
-                        <div className="sop-settings-column">
-                            <h4>Оборудование/Технология</h4>
+                        <fieldset className="sop-settings-column">
+                            <legend>Оборудование/Технология</legend>
                             <div className="sop-options-list">
                                 {equipmentOptions.length === 0 ? (
                                     <p className="sop-empty-note">Нет данных в настройках маршрутного листа.</p>
@@ -234,10 +259,10 @@ const TechnologistRouteSheetsWorkspace = () => {
                                     </label>
                                 ))}
                             </div>
-                        </div>
+                        </fieldset>
 
-                        <div className="sop-settings-column">
-                            <h4>Параметры</h4>
+                        <fieldset className="sop-settings-column">
+                            <legend>Параметры</legend>
                             <div className="sop-options-list">
                                 {sectionDetails.parameters.length === 0 ? (
                                     <p className="sop-empty-note">Нет параметров для выбранной секции.</p>
@@ -248,10 +273,10 @@ const TechnologistRouteSheetsWorkspace = () => {
                                     </label>
                                 ))}
                             </div>
-                        </div>
+                        </fieldset>
 
-                        <div className="sop-settings-column">
-                            <h4>QC</h4>
+                        <fieldset className="sop-settings-column">
+                            <legend>QC</legend>
                             <div className="sop-options-list">
                                 {sectionDetails.qc.length === 0 ? (
                                     <p className="sop-empty-note">Нет QC для выбранной секции.</p>
@@ -262,7 +287,23 @@ const TechnologistRouteSheetsWorkspace = () => {
                                     </label>
                                 ))}
                             </div>
+                        </fieldset>
+
+                        <div className="sop-comment-block">
+                            <label htmlFor="sop-comment">Комментарий</label>
+                            <textarea
+                                id="sop-comment"
+                                rows={3}
+                                value={commentText}
+                                onChange={(event) => setCommentText(event.target.value)}
+                            />
                         </div>
+                    </div>
+
+                    <div className="sop-nav-actions" aria-label="SOP navigation actions">
+                        <button type="button" className="sop-icon-btn" title="Back" aria-label="Back">◀ Back</button>
+                        <button type="button" className="sop-icon-btn" title="Next" aria-label="Next">Next ▶</button>
+                        <button type="button" className="sop-icon-btn" title="Save" aria-label="Save">💾 Save</button>
                     </div>
 
                     {loadError && <p className="form-error">{loadError}</p>}

@@ -2,6 +2,14 @@ import React, { useMemo, useRef, useState } from 'react';
 
 const DEFAULT_PROCEDURE_TITLE = 'Процедура (не задано)';
 
+const formatNormativeTotal = (value) => {
+    if (Number.isInteger(value)) {
+        return String(value);
+    }
+
+    return value.toLocaleString('ru-RU', { maximumFractionDigits: 3 });
+};
+
 const ensureSheetJs = () => {
     if (window.XLSX) {
         return Promise.resolve(window.XLSX);
@@ -114,6 +122,17 @@ const AssemblyStagesWorkspace = () => {
         const value = procedureName.trim();
         return value || DEFAULT_PROCEDURE_TITLE;
     }, [procedureName]);
+
+    const normativeTotal = useMemo(() => createdProcedures.reduce((sum, item) => {
+        const normalizedValue = item.normative.replace(/\s+/g, '').replace(',', '.');
+        const parsedValue = Number(normalizedValue);
+
+        if (Number.isFinite(parsedValue)) {
+            return sum + parsedValue;
+        }
+
+        return sum;
+    }, 0), [createdProcedures]);
 
     const onToggleTopRow = (id) => {
         setSelectedTopIds((prev) => {
@@ -306,6 +325,12 @@ const AssemblyStagesWorkspace = () => {
                                     ))
                                 )}
                             </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colSpan={3}>Итого норматив</td>
+                                    <td>{formatNormativeTotal(normativeTotal)}</td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                 </aside>

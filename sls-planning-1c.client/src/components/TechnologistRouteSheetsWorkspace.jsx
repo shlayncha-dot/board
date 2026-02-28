@@ -47,7 +47,7 @@ const toSectionDetails = (settings, sectionName) => {
     };
 };
 
-const buildStepItems = () => Array.from({ length: 12 }, (_, index) => index + 1);
+const buildStepItems = () => Array.from({ length: 15 }, (_, index) => index + 1);
 
 const TechnologistRouteSheetsWorkspace = () => {
     const currentStep = 1;

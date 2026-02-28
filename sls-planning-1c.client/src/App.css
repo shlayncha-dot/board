@@ -1242,7 +1242,7 @@
 .admin-settings-grid {
     display: grid;
     gap: 12px;
-    justify-items: center;
+    justify-items: stretch;
 }
 
 .admin-state {
@@ -1262,9 +1262,12 @@
 
 .admin-card--wide {
     max-width: 100%;
+    width: 100%;
+    margin-top: 0;
 }
 
 .admin-users-table-wrap {
+    width: 100%;
     overflow: auto;
     border: 1px dashed #666;
     background: #fff;
@@ -1280,10 +1283,10 @@
 .admin-users-table th,
 .admin-users-table td {
     border: 1px dashed #666;
-    padding: 8px 10px;
+    padding: 6px 8px;
     color: #111;
     vertical-align: middle;
-    font-size: 13px;
+    font-size: 12px;
     white-space: nowrap;
 }
 
@@ -1296,7 +1299,7 @@
     width: 100%;
     border: 1px solid #c7c7c7;
     border-radius: 6px;
-    padding: 6px 8px;
+    padding: 4px 6px;
     background: #fff;
 }
 
@@ -1741,6 +1744,53 @@
     display: flex;
     justify-content: flex-end;
     gap: 8px;
+}
+
+.route-sheets-import-dialog {
+    width: min(900px, 94vw);
+}
+
+.route-sheets-import-grid {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) minmax(320px, 1.4fr);
+    gap: 12px;
+}
+
+.route-sheets-import-column {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.route-sheets-import-column input,
+.route-sheets-import-column textarea {
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 8px;
+    font-size: 13px;
+    font-family: inherit;
+}
+
+.route-sheets-import-column textarea {
+    resize: vertical;
+}
+
+.route-sheets-import-preview {
+    flex: 1;
+    min-height: 220px;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    background: #fafafa;
+    padding: 8px;
+}
+
+.route-sheets-import-preview-title {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.route-sheets-import-actions {
+    justify-content: flex-end;
 }
 
 .user-touch-main {

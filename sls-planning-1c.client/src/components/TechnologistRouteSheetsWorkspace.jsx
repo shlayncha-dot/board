@@ -52,6 +52,7 @@ const buildStepItems = () => Array.from({ length: 15 }, (_, index) => index + 1)
 const TechnologistRouteSheetsWorkspace = () => {
     const currentStep = 1;
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
     const [selectedProject, setSelectedProject] = useState('');
     const [selectedSpecification, setSelectedSpecification] = useState('');
     const [appliedProject, setAppliedProject] = useState('');
@@ -67,6 +68,8 @@ const TechnologistRouteSheetsWorkspace = () => {
     const [tableSearch, setTableSearch] = useState('');
     const [commentText, setCommentText] = useState('');
     const [loadError, setLoadError] = useState('');
+    const [importSearch, setImportSearch] = useState('');
+    const [importPayload, setImportPayload] = useState('');
 
     const projectOptions = Object.keys(specificationCatalog);
     const specificationOptions = useMemo(() => {
@@ -158,9 +161,20 @@ const TechnologistRouteSheetsWorkspace = () => {
         setIsDialogOpen(false);
     };
 
+    const openImportDialog = () => {
+        setImportSearch('');
+        setImportPayload('');
+        setIsImportDialogOpen(true);
+    };
+
+    const closeImportDialog = () => {
+        setIsImportDialogOpen(false);
+    };
+
     return (
         <div className="route-sheets-page">
             <div className="route-sheets-topbar">
+                <button type="button" className="save-btn" onClick={openImportDialog}>Импорт маршрутного листа</button>
                 <button type="button" className="save-btn" onClick={openDialog}>Загрузить спецификацию</button>
                 <button type="button" className="cancel-btn">Создать таблицу</button>
                 <button type="button" className="cancel-btn">Создать PDF</button>
@@ -336,6 +350,45 @@ const TechnologistRouteSheetsWorkspace = () => {
                         <div className="route-sheets-dialog-actions">
                             <button type="button" className="save-btn" onClick={applySpecification}>Сохранить</button>
                             <button type="button" className="cancel-btn" onClick={closeDialog}>Отмена</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {isImportDialogOpen && (
+                <div className="route-sheets-dialog-overlay" role="presentation">
+                    <div className="route-sheets-dialog route-sheets-import-dialog" role="dialog" aria-modal="true" aria-label="Импорт маршрутного листа">
+                        <h3>Импорт маршрутного листа</h3>
+
+                        <div className="route-sheets-import-grid">
+                            <div className="route-sheets-import-column">
+                                <label htmlFor="route-sheet-import-search">Поиск</label>
+                                <input
+                                    id="route-sheet-import-search"
+                                    type="text"
+                                    value={importSearch}
+                                    onChange={(event) => setImportSearch(event.target.value)}
+                                />
+
+                                <div className="route-sheets-import-preview" aria-label="Превью">
+                                    <span className="route-sheets-import-preview-title">Превью</span>
+                                </div>
+                            </div>
+
+                            <div className="route-sheets-import-column">
+                                <label htmlFor="route-sheet-import-payload">Данные маршрутного листа</label>
+                                <textarea
+                                    id="route-sheet-import-payload"
+                                    rows={20}
+                                    value={importPayload}
+                                    onChange={(event) => setImportPayload(event.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="route-sheets-dialog-actions route-sheets-import-actions">
+                            <button type="button" className="save-btn" onClick={closeImportDialog}>Импортировать</button>
+                            <button type="button" className="cancel-btn" onClick={closeImportDialog}>Отмена</button>
                         </div>
                     </div>
                 </div>

@@ -106,7 +106,6 @@ const AdminSettings = ({ usersList, onCreateUser, onSaveUserAccess, activeAdminS
                 </section>
             ) : (
                 <section className="admin-card admin-card--wide">
-                    <h3>Настройки пользователей</h3>
                     <div className="admin-users-table-wrap">
                         <table className="admin-users-table">
                             <thead>

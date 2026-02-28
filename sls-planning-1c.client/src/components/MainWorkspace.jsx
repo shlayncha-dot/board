@@ -4,6 +4,8 @@ import DashboardWorkspace from './DashboardWorkspace';
 import DesignDocsWorkspace from './DesignDocsWorkspace';
 import AdminSettings from './AdminSettings';
 import { t } from '../config/translations';
+import TechnologistRouteSheetSettings from './TechnologistRouteSheetSettings';
+import TechnologistRouteSheetsWorkspace from './TechnologistRouteSheetsWorkspace';
 
 const MainWorkspace = ({
     lang,
@@ -41,6 +43,14 @@ const MainWorkspace = ({
     }
     if (activeTab === 0 && settingsContext === 'none') {
         return <DesignDocsWorkspace activeSubItem={activeSubItem} />;
+    }
+
+    if (activeTab === 1 && activeSubItem === 0 && settingsContext === 'none') {
+        return <TechnologistRouteSheetsWorkspace />;
+    }
+
+    if (activeTab === 1 && activeSubItem === 2 && settingsContext === 'none') {
+        return <TechnologistRouteSheetSettings />;
     }
 
     return (

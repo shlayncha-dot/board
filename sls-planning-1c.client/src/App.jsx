@@ -270,7 +270,7 @@ function App() {
                             />
                         )}
 
-                        <main className={`main-display ${activeTab === 7 && settingsContext !== 'account' ? 'dashboard-mode' : ''} ${activeTab === 0 && settingsContext === 'none' ? 'design-docs-mode' : ''} ${settingsContext === 'admin' ? 'admin-mode' : ''} ${settingsContext === 'account' ? 'account-mode' : ''}`}>
+                        <main className={`main-display ${activeTab === 7 && settingsContext !== 'account' ? 'dashboard-mode' : ''} ${activeTab === 0 && settingsContext === 'none' ? 'design-docs-mode' : ''} ${activeTab === 1 && activeSubItem === 0 && settingsContext === 'none' ? 'route-sheets-mode' : ''} ${activeTab === 1 && activeSubItem === 2 && settingsContext === 'none' ? 'tech-settings-mode' : ''} ${settingsContext === 'admin' ? 'admin-mode' : ''} ${settingsContext === 'account' ? 'account-mode' : ''}`}>
                             <MainWorkspace
                                 lang={lang}
                                 settingsContext={settingsContext}

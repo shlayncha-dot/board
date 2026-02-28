@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using SLS_Planning_1C.Server.Features.FileIndexing;
 using SLS_Planning_1C.Server.Features.Naming;
+using SLS_Planning_1C.Server.Features.RouteSheetSettings;
 using SLS_Planning_1C.Server.Features.Verification;
 using SLS_Planning_1C.Server.Features.Users;
 
@@ -22,6 +23,7 @@ builder.Services.AddHttpClient<INamingService, NamingService>();
 builder.Services.AddSingleton<INamingCredentialsStore, NamingRuntimeCredentialsStore>();
 builder.Services.Configure<NamingApiOptions>(builder.Configuration.GetSection("ExternalApis:Naming"));
 builder.Services.AddSingleton<IUserStore, UserStore>();
+builder.Services.AddSingleton<IRouteSheetSettingsStore, RouteSheetSettingsStore>();
 
 var app = builder.Build();
 

@@ -5,7 +5,7 @@ export const menuConfig = [
   },
   {
     labelKey: 'menu.technologist',
-    subMenuKeys: ['submenu.routeSheets', 'submenu.techSpecUpload', 'common.settings']
+    subMenuKeys: ['submenu.routeSheets', 'submenu.specUpload', 'common.settings']
   },
   {
     labelKey: 'menu.pilotGroup',

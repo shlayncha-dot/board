@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import Settings from './Settings';
 import DashboardWorkspace from './DashboardWorkspace';
 import DesignDocsWorkspace from './DesignDocsWorkspace';
@@ -6,6 +6,7 @@ import AdminSettings from './AdminSettings';
 import { t } from '../config/translations';
 import TechnologistRouteSheetSettings from './TechnologistRouteSheetSettings';
 import TechnologistRouteSheetsWorkspace from './TechnologistRouteSheetsWorkspace';
+import SpecificationUploadView from './designDocs/SpecificationUploadView';
 
 const MainWorkspace = ({
     lang,
@@ -21,6 +22,11 @@ const MainWorkspace = ({
     onCreateUser,
     onSaveUserAccess
 }) => {
+    const techUploadInputRef = useRef(null);
+    const [techProductName, setTechProductName] = useState('');
+    const [techSpecName, setTechSpecName] = useState('');
+    const [techUploadFile, setTechUploadFile] = useState('');
+
     if (settingsContext === 'account') {
         return <Settings lang={lang} user={user} setUser={setUser} setIsSettingsOpen={closeAccountSettings} />;
     }
@@ -47,6 +53,20 @@ const MainWorkspace = ({
 
     if (activeTab === 1 && activeSubItem === 0 && settingsContext === 'none') {
         return <TechnologistRouteSheetsWorkspace />;
+    }
+
+    if (activeTab === 1 && activeSubItem === 1 && settingsContext === 'none') {
+        return (
+            <SpecificationUploadView
+                productName={techProductName}
+                onProductNameChange={setTechProductName}
+                specName={techSpecName}
+                onSpecNameChange={setTechSpecName}
+                uploadFile={techUploadFile}
+                uploadInputRef={techUploadInputRef}
+                onUploadFileChange={setTechUploadFile}
+            />
+        );
     }
 
     if (activeTab === 1 && activeSubItem === 2 && settingsContext === 'none') {

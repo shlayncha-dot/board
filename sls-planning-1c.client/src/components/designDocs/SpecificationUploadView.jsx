@@ -13,8 +13,6 @@ const SpecificationUploadView = ({
         <section className="design-docs-page">
             <div className="spec-upload-layout">
                 <article className="spec-card">
-                    <h2>Загрузка спецификации</h2>
-
                     <label className="field-group">
                         Наименование изделия
                         <input

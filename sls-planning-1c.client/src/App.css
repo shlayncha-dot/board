@@ -18,9 +18,9 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    height: 90px;
+    height: 63px;
     background: white;
-    padding: 0 30px;
+    padding: 0 21px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.05);
     z-index: 10;
     margin: 12px 20px 0;
@@ -30,7 +30,7 @@
 .header-left, .header-right {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 14px;
     flex: 1;
 }
 
@@ -39,16 +39,16 @@
 }
 
 .logo-box {
-    height: 60px;
-    width: 110px;
+    height: 42px;
+    width: 77px;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
 .logo-box-small {
-    width: 56px;
-    height: 36px;
+    width: 39px;
+    height: 25px;
 }
 
 .header-account-logo {
@@ -63,7 +63,7 @@
 
 .center-title {
     font-weight: 900;
-    font-size: 50px;
+    font-size: 35px;
     color: #000;
     flex: 2;
     text-align: center;
@@ -71,8 +71,29 @@
 }
 
 .time-block {
-    font-size: 14px;
-    line-height: 1.35;
+    font-size: 10px;
+    line-height: 1.2;
+}
+
+
+.header-network-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.header-network-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: #ef4444;
+}
+
+.header-network-status.is-online .header-network-dot {
+    background: #22c55e;
 }
 
 /* АВТОРИЗАЦИЯ */
@@ -83,17 +104,17 @@
 .auth-profile {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     background: #fff;
-    padding: 5px 18px 5px 5px;
+    padding: 4px 13px 4px 4px;
     border-radius: 50px;
     border: 1px solid #eee;
     cursor: pointer;
 }
 
 .avatar {
-    width: 42px;
-    height: 42px;
+    width: 29px;
+    height: 29px;
     border-radius: 50%;
     background: #f0f0f0;
     overflow: hidden;
@@ -106,18 +127,18 @@
     }
 
 .user-name {
-    font-size: 14px;
+    font-size: 10px;
     font-weight: bold;
 }
 
 .user-status {
-    font-size: 11px;
+    font-size: 8px;
     color: #888;
 }
 
 .dropdown-menu {
     position: absolute;
-    top: 60px;
+    top: 42px;
     right: 0;
     background: white;
     width: 200px;
@@ -152,17 +173,17 @@
     display: flex;
     gap: 4px;
     background: #f0f0f0;
-    padding: 4px;
-    border-radius: 12px;
+    padding: 3px;
+    border-radius: 8px;
 }
 
 .lang-btn {
     border: none;
     background: none;
     cursor: pointer;
-    padding: 6px 12px;
-    border-radius: 8px;
-    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 8px;
     font-weight: bold;
 }
 
@@ -1833,46 +1854,22 @@
     margin: 0;
 }
 
-.user-touch-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-}
-
-.user-touch-info-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    min-height: 34px;
-    padding: 4px 10px;
+.user-touch-framed-section {
     border: 1px solid #e6ebf1;
     border-radius: 10px;
-    background: #f8fafc;
-    font-size: 13px;
-    color: #374151;
-}
-
-.user-touch-network-status {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-weight: 600;
-}
-
-.user-touch-network-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 999px;
-    background: #ef4444;
-}
-
-.user-touch-network-status.is-online .user-touch-network-dot {
-    background: #22c55e;
+    background: #fff;
+    padding: 6px 8px 8px;
+    margin: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .user-touch-section-title {
+    padding: 0 6px;
     font-size: 0.7rem;
+    font-weight: 600;
 }
 
 .user-touch-order-actions {
@@ -1903,7 +1900,7 @@
 }
 
 .user-touch-table-scroller--orders {
-    max-height: calc(10 * 52px + 54px);
+    max-height: calc(10 * 36px + 38px);
 }
 
 .user-touch-table {
@@ -1916,14 +1913,15 @@
 .user-touch-table td {
     border-bottom: 1px solid #eceff3;
     text-align: left;
-    padding: 12px;
-    font-size: 18px;
+    padding: 8px;
+    font-size: 13px;
+    line-height: 1.15;
 }
 
 .user-touch-table--compact th,
 .user-touch-table--compact td {
-    padding-top: 7px;
-    padding-bottom: 7px;
+    padding-top: 5px;
+    padding-bottom: 5px;
 }
 
 .user-touch-table tbody tr {

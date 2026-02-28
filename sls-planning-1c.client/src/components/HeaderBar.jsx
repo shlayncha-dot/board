@@ -13,6 +13,7 @@ const HeaderBar = ({
     isLoggedIn
 }) => {
     const [now, setNow] = useState(() => new Date());
+    const [isOnline, setIsOnline] = useState(() => navigator.onLine);
 
     useEffect(() => {
         const timerId = setInterval(() => {
@@ -20,6 +21,19 @@ const HeaderBar = ({
         }, 1000);
 
         return () => clearInterval(timerId);
+    }, []);
+
+    useEffect(() => {
+        const handleOnline = () => setIsOnline(true);
+        const handleOffline = () => setIsOnline(false);
+
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
     }, []);
 
     const { dateText, timeText } = useMemo(() => {
@@ -48,7 +62,13 @@ const HeaderBar = ({
                 <div className="logo-box">
                     <img src="/images/logo1.png" alt="SLS logo" className="logo-img" />
                 </div>
-                <div className="time-block">{dateText}<br /><b>{timeText}</b></div>
+                <div className="time-block">
+                    {dateText}<br /><b>{timeText}</b>
+                </div>
+                <span className={`header-network-status ${isOnline ? 'is-online' : 'is-offline'}`}>
+                    <span className="header-network-dot" aria-hidden="true" />
+                    {isOnline ? 'Online' : 'Offline'}
+                </span>
             </div>
 
             <div className="center-title">SLS planning v3</div>

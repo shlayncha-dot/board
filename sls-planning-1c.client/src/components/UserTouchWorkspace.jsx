@@ -26,7 +26,6 @@ const mockParts = [
 const UserTouchWorkspace = () => {
     const [selectedOrderId, setSelectedOrderId] = useState(null);
     const [selectedPart, setSelectedPart] = useState(null);
-    const [isOnline, setIsOnline] = useState(() => navigator.onLine);
 
     const selectedOrder = useMemo(
         () => mockOrders.find((item) => item.id === selectedOrderId) || null,
@@ -41,91 +40,68 @@ const UserTouchWorkspace = () => {
         }
     }, []);
 
-    useEffect(() => {
-        const handleOnline = () => setIsOnline(true);
-        const handleOffline = () => setIsOnline(false);
-
-        window.addEventListener('online', handleOnline);
-        window.addEventListener('offline', handleOffline);
-
-        return () => {
-            window.removeEventListener('online', handleOnline);
-            window.removeEventListener('offline', handleOffline);
-        };
-    }, []);
-
-
     return (
         <div className="user-touch-layout">
             <section className="user-touch-main-column">
                 <article className="user-touch-card">
-                    <div className="user-touch-info-bar">
-                        <span>Операторский экран • Полученные наряды</span>
-                        <span className={`user-touch-network-status ${isOnline ? 'is-online' : 'is-offline'}`}>
-                            <span className="user-touch-network-dot" aria-hidden="true" />
-                            {isOnline ? 'Online' : 'Offline'}
-                        </span>
-                    </div>
-                    <header className="user-touch-card-header">
-                        <h2 className="user-touch-section-title">Полученные наряды</h2>
+                    <fieldset className="user-touch-framed-section">
+                        <legend className="user-touch-section-title">Полученные наряды</legend>
                         <div className="user-touch-order-actions">
                             <button type="button" className="user-touch-btn user-touch-btn--primary">Взять наряд</button>
                         </div>
-                    </header>
-
-                    <div className="user-touch-table-scroller user-touch-table-scroller--orders">
-                        <table className="user-touch-table user-touch-table--compact">
-                            <thead>
-                                <tr>
-                                    <th>Наряд</th>
-                                    <th>Проект</th>
-                                    <th>Статус</th>
-                                    <th>Срок</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {mockOrders.map((order) => (
-                                    <tr
-                                        key={order.id}
-                                        className={selectedOrderId === order.id ? 'is-selected' : ''}
-                                        onClick={() => setSelectedOrderId(order.id)}
-                                    >
-                                        <td>{order.id}</td>
-                                        <td>{order.project}</td>
-                                        <td>{order.status}</td>
-                                        <td>{order.deadline}</td>
+                        <div className="user-touch-table-scroller user-touch-table-scroller--orders">
+                            <table className="user-touch-table user-touch-table--compact">
+                                <thead>
+                                    <tr>
+                                        <th>Наряд</th>
+                                        <th>Проект</th>
+                                        <th>Статус</th>
+                                        <th>Срок</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody>
+                                    {mockOrders.map((order) => (
+                                        <tr
+                                            key={order.id}
+                                            className={selectedOrderId === order.id ? 'is-selected' : ''}
+                                            onClick={() => setSelectedOrderId(order.id)}
+                                        >
+                                            <td>{order.id}</td>
+                                            <td>{order.project}</td>
+                                            <td>{order.status}</td>
+                                            <td>{order.deadline}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </fieldset>
                 </article>
 
                 <article className="user-touch-card">
-                    <header className="user-touch-card-header">
-                        <h2 className="user-touch-section-title">Детали текущего наряда</h2>
-                    </header>
-
-                    <div className="user-touch-table-scroller">
-                        <table className="user-touch-table">
-                            <thead>
-                                <tr>
-                                    <th>Код</th>
-                                    <th>Наименование</th>
-                                    <th>Кол-во</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {mockParts.map((part) => (
-                                    <tr key={part.id} onClick={() => setSelectedPart(part)}>
-                                        <td>{part.id}</td>
-                                        <td>{part.name}</td>
-                                        <td>{part.qty}</td>
+                    <fieldset className="user-touch-framed-section">
+                        <legend className="user-touch-section-title">Детали текущего наряда</legend>
+                        <div className="user-touch-table-scroller">
+                            <table className="user-touch-table">
+                                <thead>
+                                    <tr>
+                                        <th>Код</th>
+                                        <th>Наименование</th>
+                                        <th>Кол-во</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody>
+                                    {mockParts.map((part) => (
+                                        <tr key={part.id} onClick={() => setSelectedPart(part)}>
+                                            <td>{part.id}</td>
+                                            <td>{part.name}</td>
+                                            <td>{part.qty}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </fieldset>
                 </article>
             </section>
 

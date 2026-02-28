@@ -2,62 +2,60 @@ import React, { useMemo, useRef, useState } from 'react';
 
 const DEFAULT_PROCEDURE_TITLE = 'Процедура (не задано)';
 
-const createRowId = (row, index) => {
-    const code = String(row.code ?? '').trim();
-    const name = String(row.name ?? '').trim();
-
-    if (code || name) {
-        return `${code}::${name}::${index}`;
+const ensureSheetJs = () => {
+    if (window.XLSX) {
+        return Promise.resolve(window.XLSX);
     }
 
-    return `row-${index}`;
+    return new Promise((resolve, reject) => {
+        const existing = document.getElementById('sheetjs-cdn');
+
+        if (existing) {
+            existing.addEventListener('load', () => resolve(window.XLSX));
+            existing.addEventListener('error', () => reject(new Error('Не удалось загрузить SheetJS.')));
+            return;
+        }
+
+        const script = document.createElement('script');
+        script.id = 'sheetjs-cdn';
+        script.src = 'https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js';
+        script.async = true;
+        script.onload = () => resolve(window.XLSX);
+        script.onerror = () => reject(new Error('Не удалось загрузить SheetJS.'));
+        document.head.appendChild(script);
+    });
 };
 
-const parseSheetRows = (rows) => {
-    if (!Array.isArray(rows)) {
-        return [];
-    }
-
-    return rows
-        .filter((row) => Array.isArray(row) && row.some((cell) => String(cell ?? '').trim()))
-        .map((row, index) => {
-            const code = String(row[0] ?? '').trim();
-            const name = String(row[1] ?? '').trim();
-            const qtyRaw = String(row[2] ?? '').trim();
-
-            return {
-                id: createRowId({ code, name }, index),
-                code: code || `POS-${index + 1}`,
-                name: name || 'Без названия',
-                qty: qtyRaw || '1'
-            };
-        });
-};
-
-const parseUploadedSpecification = async (file) => {
+const parseTableFromExcel = async (file) => {
     if (!file) {
-        return [];
+        return { columns: [], rows: [] };
     }
 
-    const content = await file.text();
-    const rows = String(content || '')
-        .split(/\r?\n/)
-        .map((line) => {
-            const semicolonCells = line.split(';');
-            const commaCells = line.split(',');
-            const tabCells = line.split('\t');
+    const XLSX = await ensureSheetJs();
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: 'array' });
+    const firstSheetName = workbook.SheetNames[0];
+    const firstSheet = workbook.Sheets[firstSheetName];
+    const sheetRows = XLSX.utils.sheet_to_json(firstSheet, { header: 1, blankrows: false, defval: '' });
 
-            if (tabCells.length >= semicolonCells.length && tabCells.length >= commaCells.length) {
-                return tabCells;
-            }
+    if (!sheetRows.length || !Array.isArray(sheetRows[0])) {
+        return { columns: [], rows: [] };
+    }
 
-            return semicolonCells.length >= commaCells.length ? semicolonCells : commaCells;
-        });
+    const [headerRow, ...bodyRows] = sheetRows;
+    const columns = headerRow.map((header, index) => String(header || `Столбец ${index + 1}`).trim() || `Столбец ${index + 1}`);
 
-    return parseSheetRows(rows);
+    const rows = bodyRows
+        .filter((row) => Array.isArray(row) && row.some((cell) => String(cell ?? '').trim() !== ''))
+        .map((row, rowIndex) => ({
+            id: `row-${rowIndex}`,
+            values: columns.map((_, columnIndex) => String(row[columnIndex] ?? '').trim())
+        }));
+
+    return { columns, rows };
 };
 
-const CompactTable = ({ title, rows, selectedIds, onToggleRow }) => (
+const DataTable = ({ title, columns, rows, selectedIds, onToggleRow, emptyMessage }) => (
     <div className="assembly-stages-table-card">
         <div className="assembly-stages-table-title">{title}</div>
         <div className="assembly-stages-table-scroll">
@@ -65,15 +63,15 @@ const CompactTable = ({ title, rows, selectedIds, onToggleRow }) => (
                 <thead>
                     <tr>
                         <th className="assembly-stages-checkbox-col">✓</th>
-                        <th>Код</th>
-                        <th>Наименование</th>
-                        <th>Кол-во</th>
+                        {columns.map((column) => (
+                            <th key={column}>{column}</th>
+                        ))}
                     </tr>
                 </thead>
                 <tbody>
                     {rows.length === 0 ? (
                         <tr>
-                            <td colSpan={4} className="assembly-stages-empty-row">Нет данных</td>
+                            <td colSpan={Math.max(columns.length + 1, 2)} className="assembly-stages-empty-row">{emptyMessage}</td>
                         </tr>
                     ) : (
                         rows.map((row) => (
@@ -85,9 +83,9 @@ const CompactTable = ({ title, rows, selectedIds, onToggleRow }) => (
                                         onChange={() => onToggleRow(row.id)}
                                     />
                                 </td>
-                                <td>{row.code}</td>
-                                <td>{row.name}</td>
-                                <td>{row.qty}</td>
+                                {columns.map((column, index) => (
+                                    <td key={`${row.id}-${column}`}>{row.values[index] || ''}</td>
+                                ))}
                             </tr>
                         ))
                     )}
@@ -99,11 +97,14 @@ const CompactTable = ({ title, rows, selectedIds, onToggleRow }) => (
 
 const AssemblyStagesWorkspace = () => {
     const fileInputRef = useRef(null);
-    const [selectedFile, setSelectedFile] = useState(null);
+
     const [procedureName, setProcedureName] = useState('');
     const [place, setPlace] = useState('');
     const [normative, setNormative] = useState('');
     const [createdProcedures, setCreatedProcedures] = useState([]);
+    const [fileName, setFileName] = useState('Файл не выбран');
+
+    const [tableColumns, setTableColumns] = useState([]);
     const [topRows, setTopRows] = useState([]);
     const [bottomRows, setBottomRows] = useState([]);
     const [selectedTopIds, setSelectedTopIds] = useState(new Set());
@@ -138,13 +139,27 @@ const AssemblyStagesWorkspace = () => {
         });
     };
 
-    const handleLoadSpecification = async () => {
-        const parsedRows = await parseUploadedSpecification(selectedFile);
+    const handleLoadSpecification = async (event) => {
+        const file = event.target.files?.[0];
 
-        setTopRows([]);
-        setBottomRows(parsedRows);
-        setSelectedTopIds(new Set());
-        setSelectedBottomIds(new Set());
+        if (!file) {
+            return;
+        }
+
+        try {
+            const parsedTable = await parseTableFromExcel(file);
+
+            setFileName(file.name);
+            setTableColumns(parsedTable.columns);
+            setTopRows([]);
+            setBottomRows(parsedTable.rows);
+            setSelectedTopIds(new Set());
+            setSelectedBottomIds(new Set());
+        } catch {
+            alert('Не удалось прочитать Excel-файл. Проверьте формат .xls/.xlsx и повторите попытку.');
+        } finally {
+            event.target.value = '';
+        }
     };
 
     const moveUp = () => {
@@ -199,30 +214,28 @@ const AssemblyStagesWorkspace = () => {
     return (
         <section className="assembly-stages-layout">
             <header className="assembly-stages-toolbar">
-                <button type="button" onClick={handleLoadSpecification}>Загрузить спецификацию</button>
-
-                <button type="button" onClick={() => fileInputRef.current?.click()}>
-                    Выбрать таблицу
-                </button>
-
-                <span className="assembly-stages-file-name">{selectedFile?.name || 'Файл не выбран'}</span>
+                <button type="button" onClick={() => fileInputRef.current?.click()}>Загрузить спецификацию</button>
+                <span className="assembly-stages-upload-mode">Алгоритм: Загрузить Excel файл</span>
+                <span className="assembly-stages-file-name">{fileName}</span>
 
                 <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".xlsx,.xls,.csv,.txt"
-                    onChange={(event) => setSelectedFile(event.target.files?.[0] || null)}
+                    accept=".xlsx,.xls"
+                    onChange={handleLoadSpecification}
                     style={{ display: 'none' }}
                 />
             </header>
 
             <div className="assembly-stages-content-grid">
                 <div className="assembly-stages-left-pane">
-                    <CompactTable
+                    <DataTable
                         title={topTableTitle}
+                        columns={tableColumns}
                         rows={topRows}
                         selectedIds={selectedTopIds}
                         onToggleRow={onToggleTopRow}
+                        emptyMessage="Данные пока не выбраны"
                     />
 
                     <div className="assembly-stages-transfer-panel">
@@ -230,11 +243,13 @@ const AssemblyStagesWorkspace = () => {
                         <button type="button" onClick={moveDown} disabled={selectedTopIds.size === 0}>Down</button>
                     </div>
 
-                    <CompactTable
+                    <DataTable
                         title="Спецификация"
+                        columns={tableColumns}
                         rows={bottomRows}
                         selectedIds={selectedBottomIds}
                         onToggleRow={onToggleBottomRow}
+                        emptyMessage="Спецификация не загружена"
                     />
                 </div>
 
@@ -245,7 +260,6 @@ const AssemblyStagesWorkspace = () => {
                         type="text"
                         value={procedureName}
                         onChange={(event) => setProcedureName(event.target.value)}
-                        placeholder="Например: Сборка узла А"
                     />
 
                     <label htmlFor="procedure-place">Место</label>
@@ -270,8 +284,8 @@ const AssemblyStagesWorkspace = () => {
                         <table className="assembly-stages-table">
                             <thead>
                                 <tr>
-                                    <th>№</th>
-                                    <th>Процедура</th>
+                                    <th>Номер по порядку</th>
+                                    <th>Название процедуры</th>
                                     <th>Место</th>
                                     <th>Норматив</th>
                                 </tr>

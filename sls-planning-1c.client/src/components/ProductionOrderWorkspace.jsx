@@ -1,153 +1,107 @@
 import React, { useMemo, useState } from 'react';
+import { t } from '../config/translations';
 
-const ALLOWED_TYPES = new Set(['Деталь_кон', 'Деталь', 'Деталь_св']);
+const createDefaultItem = () => ({
+    name: '',
+    quantity: '',
+    dueDate: ''
+});
 
-const mockProductionOrders = [
-    'ПЗ-1001',
-    'ПЗ-1002',
-    'ПЗ-1003'
-];
+const ProductionOrderWorkspace = ({ lang }) => {
+    const [orderName, setOrderName] = useState('');
+    const [items, setItems] = useState([]);
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [newItem, setNewItem] = useState(createDefaultItem());
 
-const mockNomenclatures = [
-    'НК-5001',
-    'НК-5002',
-    'НК-5003'
-];
+    const summaryRows = useMemo(() => {
+        const summaryMap = new Map();
 
-const mockSpecificationRows = [
-    { id: '1', designation: 'A-101', name: 'Кронштейн левый', type: 'Деталь', required: 4, issued: 2 },
-    { id: '2', designation: 'A-102', name: 'Кронштейн правый', type: 'Деталь_кон', required: 4, issued: 1 },
-    { id: '3', designation: 'A-103', name: 'Панель', type: 'Сборка', required: 2, issued: 0 },
-    { id: '4', designation: 'A-104', name: 'Опора', type: 'Деталь_св', required: 8, issued: 5 },
-    { id: '5', designation: 'A-105', name: 'Втулка', type: 'Покупное', required: 12, issued: 0 },
-    { id: '6', designation: 'A-106', name: 'Планка', type: 'Деталь', required: 10, issued: 7 }
-];
+        items.forEach(({ name, quantity }) => {
+            const normalizedName = name.trim();
+            const parsedQuantity = Number(quantity) || 0;
 
-const ProductionOrderWorkspace = () => {
-    const [selectedOrder, setSelectedOrder] = useState('');
-    const [selectedNomenclature, setSelectedNomenclature] = useState('');
-    const [specRows, setSpecRows] = useState([]);
-    const [checkedRows, setCheckedRows] = useState({});
+            if (!summaryMap.has(normalizedName)) {
+                summaryMap.set(normalizedName, 0);
+            }
 
-    const canLoadSpecification = selectedOrder && selectedNomenclature;
-    const visibleRowIds = specRows.map((row) => row.id);
-
-    const allChecked = useMemo(() => (
-        visibleRowIds.length > 0 && visibleRowIds.every((id) => checkedRows[id])
-    ), [checkedRows, visibleRowIds]);
-
-    const handleLoadSpecification = () => {
-        if (!canLoadSpecification) {
-            return;
-        }
-
-        const filteredRows = mockSpecificationRows.filter((row) => ALLOWED_TYPES.has(row.type));
-        setSpecRows(filteredRows);
-        setCheckedRows({});
-    };
-
-    const handleToggleAll = () => {
-        if (allChecked) {
-            setCheckedRows({});
-            return;
-        }
-
-        const nextState = {};
-        visibleRowIds.forEach((id) => {
-            nextState[id] = true;
+            summaryMap.set(normalizedName, summaryMap.get(normalizedName) + parsedQuantity);
         });
-        setCheckedRows(nextState);
+
+        return Array.from(summaryMap.entries()).map(([name, quantity]) => ({ name, quantity }));
+    }, [items]);
+
+    const handleAddItem = () => {
+        const trimmedName = newItem.name.trim();
+        const parsedQuantity = Number(newItem.quantity);
+
+        if (!trimmedName || !Number.isFinite(parsedQuantity) || parsedQuantity <= 0 || !newItem.dueDate) {
+            return;
+        }
+
+        setItems((prev) => [
+            ...prev,
+            {
+                id: Date.now(),
+                name: trimmedName,
+                quantity: parsedQuantity,
+                dueDate: newItem.dueDate
+            }
+        ]);
+        setNewItem(createDefaultItem());
+        setIsDialogOpen(false);
     };
 
-    const handleToggleRow = (rowId) => {
-        setCheckedRows((prev) => ({
-            ...prev,
-            [rowId]: !prev[rowId]
-        }));
+    const handleCancel = () => {
+        setOrderName('');
+        setItems([]);
+        setNewItem(createDefaultItem());
+        setIsDialogOpen(false);
     };
 
     return (
         <div className="production-order-workspace">
-            <h2>Выдать наряд</h2>
+            <h2>{t(lang, 'productionOrder.title')}</h2>
 
-            <div className="production-order-controls">
-                <label className="production-order-field">
-                    <span>Выберете заказ на производствоа</span>
-                    <select value={selectedOrder} onChange={(event) => setSelectedOrder(event.target.value)}>
-                        <option value="">Выберете заказ</option>
-                        {mockProductionOrders.map((order) => (
-                            <option key={order} value={order}>{order}</option>
-                        ))}
-                    </select>
-                </label>
-
-                <label className="production-order-field">
-                    <span>Выберете номенклатуру</span>
-                    <select value={selectedNomenclature} onChange={(event) => setSelectedNomenclature(event.target.value)}>
-                        <option value="">Выберете номенклатуру</option>
-                        {mockNomenclatures.map((nomenclature) => (
-                            <option key={nomenclature} value={nomenclature}>{nomenclature}</option>
-                        ))}
-                    </select>
-                </label>
-            </div>
-
-            <div className="production-order-actions">
-                <button
-                    type="button"
-                    className="production-order-create-btn"
-                    disabled={!canLoadSpecification}
-                    onClick={handleLoadSpecification}
-                >
-                    Загрузить спецификацию
-                </button>
-                <button type="button" className="production-order-add-btn" disabled={specRows.length === 0}>
-                    Выдать наряд
-                </button>
-            </div>
+            <label className="production-order-field">
+                <span>{t(lang, 'productionOrder.orderName')}</span>
+                <input
+                    type="text"
+                    value={orderName}
+                    onChange={(event) => setOrderName(event.target.value)}
+                    placeholder={t(lang, 'productionOrder.orderNamePlaceholder')}
+                />
+            </label>
 
             <div className="production-order-table-block">
+                <div className="production-order-table-header">
+                    <h3>{t(lang, 'productionOrder.items')}</h3>
+                    <button className="production-order-add-btn" onClick={() => setIsDialogOpen(true)}>
+                        {t(lang, 'productionOrder.addNomenclature')}
+                    </button>
+                </div>
+
                 <div className="production-order-table-scroll">
-                    <table className="production-order-spec-table">
+                    <table>
                         <thead>
                             <tr>
-                                <th>
-                                    <input
-                                        type="checkbox"
-                                        checked={allChecked}
-                                        onChange={handleToggleAll}
-                                        disabled={specRows.length === 0}
-                                    />
-                                </th>
-                                <th>Выдано</th>
-                                <th>Обозначение</th>
-                                <th>Наименование</th>
-                                <th>ТИП</th>
-                                <th>Требуется</th>
+                                <th>{t(lang, 'productionOrder.nomenclature')}</th>
+                                <th>{t(lang, 'productionOrder.quantity')}</th>
+                                <th>{t(lang, 'productionOrder.dueDate')}</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {specRows.length === 0 ? (
+                            {items.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="production-order-empty-row">
-                                        Выберите заказ и номенклатуру, затем загрузите спецификацию.
+                                    <td colSpan={3} className="production-order-empty-row">
+                                        {t(lang, 'productionOrder.noItems')}
                                     </td>
                                 </tr>
                             ) : (
-                                specRows.map((row) => (
-                                    <tr key={row.id} className={checkedRows[row.id] ? 'is-checked' : ''}>
-                                        <td>
-                                            <input
-                                                type="checkbox"
-                                                checked={Boolean(checkedRows[row.id])}
-                                                onChange={() => handleToggleRow(row.id)}
-                                            />
-                                        </td>
-                                        <td>{row.issued}</td>
-                                        <td>{row.designation}</td>
-                                        <td>{row.name}</td>
-                                        <td>{row.type}</td>
-                                        <td>{row.required}</td>
+                                items.map((item) => (
+                                    <tr key={item.id}>
+                                        <td>{item.name}</td>
+                                        <td>{item.quantity}</td>
+                                        <td>{item.dueDate}</td>
                                     </tr>
                                 ))
                             )}
@@ -155,6 +109,82 @@ const ProductionOrderWorkspace = () => {
                     </table>
                 </div>
             </div>
+
+            <div className="production-order-table-block">
+                <h3>{`${t(lang, 'productionOrder.summary')}: ${items.length}`}</h3>
+                <div className="production-order-table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>{t(lang, 'productionOrder.nomenclature')}</th>
+                                <th>{t(lang, 'productionOrder.quantity')}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {summaryRows.length === 0 ? (
+                                <tr>
+                                    <td colSpan={2} className="production-order-empty-row">
+                                        {t(lang, 'productionOrder.noSummary')}
+                                    </td>
+                                </tr>
+                            ) : (
+                                summaryRows.map((row) => (
+                                    <tr key={row.name}>
+                                        <td>{row.name}</td>
+                                        <td>{row.quantity}</td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div className="production-order-actions">
+                <button className="production-order-create-btn">{t(lang, 'productionOrder.create')}</button>
+                <button className="production-order-cancel-btn" onClick={handleCancel}>{t(lang, 'productionOrder.cancel')}</button>
+            </div>
+
+            {isDialogOpen ? (
+                <div className="production-order-modal-backdrop">
+                    <div className="production-order-modal">
+                        <h3>{t(lang, 'productionOrder.addDialogTitle')}</h3>
+
+                        <label className="production-order-field">
+                            <span>{t(lang, 'productionOrder.nomenclature')}</span>
+                            <input
+                                type="text"
+                                value={newItem.name}
+                                onChange={(event) => setNewItem((prev) => ({ ...prev, name: event.target.value }))}
+                            />
+                        </label>
+
+                        <label className="production-order-field">
+                            <span>{t(lang, 'productionOrder.quantity')}</span>
+                            <input
+                                type="number"
+                                min="1"
+                                value={newItem.quantity}
+                                onChange={(event) => setNewItem((prev) => ({ ...prev, quantity: event.target.value }))}
+                            />
+                        </label>
+
+                        <label className="production-order-field">
+                            <span>{t(lang, 'productionOrder.dueDate')}</span>
+                            <input
+                                type="date"
+                                value={newItem.dueDate}
+                                onChange={(event) => setNewItem((prev) => ({ ...prev, dueDate: event.target.value }))}
+                            />
+                        </label>
+
+                        <div className="production-order-actions">
+                            <button className="production-order-create-btn" onClick={handleAddItem}>{t(lang, 'productionOrder.add')}</button>
+                            <button className="production-order-cancel-btn" onClick={() => setIsDialogOpen(false)}>{t(lang, 'productionOrder.cancel')}</button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
         </div>
     );
 };

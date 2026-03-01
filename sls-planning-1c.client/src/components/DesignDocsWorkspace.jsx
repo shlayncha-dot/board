@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import SpecificationUploadView from './designDocs/SpecificationUploadView';
 import KDCheckView from './designDocs/KDCheckView';
 import DesignDocsSettingsView from './designDocs/DesignDocsSettingsView';
-import { verificationApi } from '../config/apiConfig';
+import { specificationUploadApi, verificationApi } from '../config/apiConfig';
 import { extractRowsForNamingCheck } from '../services/namingCheckService';
 
 const sampleSpecs = [
@@ -148,8 +148,14 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
     const verifyInputRef = useRef(null);
 
     const [productName, setProductName] = useState('');
-    const [specName, setSpecName] = useState('');
-    const [uploadFile, setUploadFile] = useState('');
+    const [selectedSpecType, setSelectedSpecType] = useState('Basic');
+    const [selectedUploadFile, setSelectedUploadFile] = useState(null);
+    const [specsByProduct, setSpecsByProduct] = useState([]);
+    const [productList, setProductList] = useState([]);
+    const [isProductDialogOpen, setIsProductDialogOpen] = useState(false);
+    const [specVersion, setSpecVersion] = useState(1);
+    const [isSpecSaving, setIsSpecSaving] = useState(false);
+    const [uploadStatus, setUploadStatus] = useState(null);
     const [verificationParams, setVerificationParams] = useState(createVerificationParams);
     const [savedVerificationParams, setSavedVerificationParams] = useState(createVerificationParams);
     const [specificationSettings, setSpecificationSettings] = useState(createSpecificationSettings);
@@ -209,6 +215,131 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
             isMounted = false;
         };
     }, []);
+
+
+    const loadProductNames = useCallback(async () => {
+        const response = await fetch(specificationUploadApi.products);
+
+        if (!response.ok) {
+            throw new Error('Не удалось загрузить список наименований.');
+        }
+
+        const data = await response.json();
+        setProductList(Array.isArray(data.productNames) ? data.productNames : []);
+    }, []);
+
+    useEffect(() => {
+        loadProductNames().catch((error) => {
+            alert(error instanceof Error ? error.message : 'Ошибка загрузки списка изделий.');
+        });
+    }, [loadProductNames]);
+
+    useEffect(() => {
+        const normalizedProductName = productName.trim();
+
+        if (!normalizedProductName) {
+            setSpecsByProduct([]);
+            setSpecVersion(1);
+            return;
+        }
+
+        const controller = new AbortController();
+
+        const loadSpecificationData = async () => {
+            const query = encodeURIComponent(normalizedProductName);
+            const [specsResponse, versionResponse] = await Promise.all([
+                fetch(`${specificationUploadApi.specifications}?productName=${query}`, { signal: controller.signal }),
+                fetch(`${specificationUploadApi.nextVersion}?productName=${query}&specType=${selectedSpecType}`, { signal: controller.signal })
+            ]);
+
+            if (!specsResponse.ok) {
+                throw new Error('Не удалось загрузить список спецификаций.');
+            }
+
+            if (!versionResponse.ok) {
+                throw new Error('Не удалось определить следующую версию спецификации.');
+            }
+
+            const specs = await specsResponse.json();
+            const versionData = await versionResponse.json();
+
+            setSpecsByProduct(Array.isArray(specs) ? specs : []);
+            setSpecVersion(Number(versionData.nextVersion) || 1);
+        };
+
+        loadSpecificationData().catch((error) => {
+            if (controller.signal.aborted) {
+                return;
+            }
+
+            alert(error instanceof Error ? error.message : 'Ошибка загрузки спецификаций.');
+        });
+
+        return () => controller.abort();
+    }, [productName, selectedSpecType]);
+
+    const handleSpecFileChange = useCallback((file) => {
+        setSelectedUploadFile(file);
+    }, []);
+
+    const handleSelectProduct = useCallback((name) => {
+        setProductName(name);
+        setIsProductDialogOpen(false);
+    }, []);
+
+    const handleSaveSpecification = useCallback(async () => {
+        const normalizedProductName = productName.trim();
+
+        if (!normalizedProductName) {
+            alert('Укажите наименование изделия.');
+            return;
+        }
+
+        if (!selectedUploadFile) {
+            alert('Выберите Excel-файл спецификации.');
+            return;
+        }
+
+        setIsSpecSaving(true);
+
+        try {
+            const formData = new FormData();
+            formData.append('productName', normalizedProductName);
+            formData.append('specType', selectedSpecType);
+            formData.append('version', String(specVersion));
+            formData.append('file', selectedUploadFile);
+
+            const response = await fetch(specificationUploadApi.upload, {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || 'Не удалось отправить спецификацию в 1С.');
+            }
+
+            setUploadStatus({ success: true, message: data.message || 'Спецификация успешно загружена.' });
+            setSelectedUploadFile(null);
+            await loadProductNames();
+
+            const query = encodeURIComponent(normalizedProductName);
+            const [specsResponse, versionResponse] = await Promise.all([
+                fetch(`${specificationUploadApi.specifications}?productName=${query}`),
+                fetch(`${specificationUploadApi.nextVersion}?productName=${query}&specType=${selectedSpecType}`)
+            ]);
+
+            const specs = specsResponse.ok ? await specsResponse.json() : [];
+            const versionData = versionResponse.ok ? await versionResponse.json() : { nextVersion: specVersion + 1 };
+            setSpecsByProduct(Array.isArray(specs) ? specs : []);
+            setSpecVersion(Number(versionData.nextVersion) || (specVersion + 1));
+        } catch (error) {
+            setUploadStatus({ success: false, message: error instanceof Error ? error.message : 'Ошибка загрузки спецификации.' });
+        } finally {
+            setIsSpecSaving(false);
+        }
+    }, [loadProductNames, productName, selectedSpecType, selectedUploadFile, specVersion]);
 
     const filteredRows = useMemo(() => {
         const normalizedSearch = searchValue.trim().toLowerCase();
@@ -668,11 +799,22 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
                 <SpecificationUploadView
                     productName={productName}
                     onProductNameChange={setProductName}
-                    specName={specName}
-                    onSpecNameChange={setSpecName}
-                    uploadFile={uploadFile}
+                    onOpenProductList={() => setIsProductDialogOpen(true)}
+                    selectedSpecType={selectedSpecType}
+                    onSpecTypeChange={setSelectedSpecType}
+                    uploadFileName={selectedUploadFile?.name || ''}
                     uploadInputRef={uploadInputRef}
-                    onUploadFileChange={setUploadFile}
+                    onUploadFileChange={handleSpecFileChange}
+                    specsByProduct={specsByProduct}
+                    specVersion={specVersion}
+                    onSave={handleSaveSpecification}
+                    isSaving={isSpecSaving}
+                    productList={productList}
+                    isProductDialogOpen={isProductDialogOpen}
+                    onCloseProductDialog={() => setIsProductDialogOpen(false)}
+                    onSelectProduct={handleSelectProduct}
+                    uploadStatus={uploadStatus}
+                    onCloseStatusDialog={() => setUploadStatus(null)}
                 />
             </div>
 

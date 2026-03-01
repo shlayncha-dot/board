@@ -7,6 +7,7 @@ using SLS_Planning_1C.Server.Features.RouteSheetSettings;
 using SLS_Planning_1C.Server.Features.Verification;
 using SLS_Planning_1C.Server.Features.Users;
 using SLS_Planning_1C.Server.Features.AssemblyStages;
+using SLS_Planning_1C.Server.Features.SpecificationUpload;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,6 +45,7 @@ builder.Services.Configure<NamingApiOptions>(builder.Configuration.GetSection("E
 builder.Services.AddSingleton<IUserStore, UserStore>();
 builder.Services.AddSingleton<IRouteSheetSettingsStore, RouteSheetSettingsStore>();
 builder.Services.AddSingleton<IAssemblyStagesStore, AssemblyStagesStore>();
+builder.Services.AddSingleton<ISpecificationUploadStore, SpecificationUploadStore>();
 
 var app = builder.Build();
 

@@ -741,6 +741,68 @@
     display: none;
 }
 
+
+
+.spec-upload-layout-single {
+    grid-template-columns: 1fr;
+}
+
+.spec-product-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+}
+
+.spec-product-field {
+    flex: 1;
+}
+
+.field-group select {
+    border: 1px solid #d9d9d9;
+    border-radius: 10px;
+    padding: 11px 12px;
+    font-size: 14px;
+    background: #fff;
+}
+
+.spec-history-list {
+    border: 1px solid #ececec;
+    border-radius: 10px;
+    background: #fff;
+    padding: 10px 12px;
+    max-height: 220px;
+    overflow: auto;
+}
+
+.spec-history-list ul {
+    margin: 0;
+    padding-left: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.spec-empty-state {
+    margin: 0;
+    color: #6f6f6f;
+    font-size: 14px;
+}
+
+.spec-product-options {
+    margin: 8px 0 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 8px;
+    max-height: 280px;
+    overflow: auto;
+}
+
+.spec-product-options .cancel-btn {
+    width: 100%;
+    text-align: left;
+}
+
 .info-card ul {
     margin: 0;
     padding-left: 20px;

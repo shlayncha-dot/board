@@ -2408,7 +2408,7 @@
 
 .assembly-stages-content-grid {
     display: grid;
-    grid-template-columns: 3fr 1fr;
+    grid-template-columns: calc(75% - 5mm) calc(25% + 5mm);
     gap: 8px;
     min-height: 0;
     min-width: 0;
@@ -2531,6 +2531,10 @@
 
 .assembly-stages-th-content {
     position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
 }
 
 .assembly-stages-resize-handle {
@@ -2559,10 +2563,16 @@
     color: #94a3b8;
 }
 
+.assembly-stages-unchecked-row td {
+    background: #fef9c3;
+}
+
 .assembly-stages-transfer-panel {
     display: flex;
     justify-content: center;
     gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
 }
 
 .assembly-stages-transfer-panel button {
@@ -2573,6 +2583,14 @@
     padding: 4px 10px;
     font-size: 12px;
     cursor: pointer;
+}
+
+.assembly-stages-search {
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 12px;
+    min-width: 220px;
 }
 
 @media (max-width: 1100px) {

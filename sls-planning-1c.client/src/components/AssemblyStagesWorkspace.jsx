@@ -143,6 +143,42 @@ const DataTable = ({
     onSetColumnWidth
 }) => {
     const resizeStateRef = useRef(null);
+    const filterPopoverRef = useRef(null);
+    const [openFilterIndex, setOpenFilterIndex] = useState(null);
+    const [columnFilters, setColumnFilters] = useState({});
+    const [pendingFilters, setPendingFilters] = useState({});
+
+    const filterOptions = useMemo(() => columns.reduce((acc, _column, index) => {
+        const options = [...new Set(rows.map((row) => String(row.values[index] || '').trim() || ''))]
+            .sort((a, b) => a.localeCompare(b, 'ru'));
+        acc[index] = options;
+        return acc;
+    }, {}), [columns, rows]);
+
+    const filteredRows = useMemo(() => rows.filter((row) => Object.entries(columnFilters).every(([columnIndex, selectedValues]) => {
+        if (!Array.isArray(selectedValues) || selectedValues.length === 0) {
+            return true;
+        }
+
+        return selectedValues.includes(String(row.values[Number(columnIndex)] || '').trim() || '');
+    })), [columnFilters, rows]);
+
+    useEffect(() => {
+        if (openFilterIndex === null) {
+            return undefined;
+        }
+
+        const onMouseDown = (event) => {
+            if (filterPopoverRef.current && !filterPopoverRef.current.contains(event.target)) {
+                setOpenFilterIndex(null);
+            }
+        };
+
+        document.addEventListener('mousedown', onMouseDown);
+        return () => {
+            document.removeEventListener('mousedown', onMouseDown);
+        };
+    }, [openFilterIndex]);
 
     const handleResizeStart = (event, columnIndex) => {
         event.preventDefault();
@@ -173,7 +209,21 @@ const DataTable = ({
         window.addEventListener('mouseup', onMouseUp);
     };
 
-    const allSelected = rows.length > 0 && rows.every((row) => selectedIds.has(row.id));
+    const allVisibleSelected = filteredRows.length > 0 && filteredRows.every((row) => selectedIds.has(row.id));
+
+    const isColumnFiltered = (columnIndex) => Array.isArray(columnFilters[columnIndex])
+        && columnFilters[columnIndex].length > 0
+        && columnFilters[columnIndex].length < (filterOptions[columnIndex] || []).length;
+
+    const openFilter = (columnIndex) => {
+        setPendingFilters((prev) => ({
+            ...prev,
+            [columnIndex]: Array.isArray(columnFilters[columnIndex])
+                ? [...columnFilters[columnIndex]]
+                : [...(filterOptions[columnIndex] || [])]
+        }));
+        setOpenFilterIndex(columnIndex);
+    };
 
     return (
         <div className="assembly-stages-table-card">
@@ -183,11 +233,64 @@ const DataTable = ({
                     <thead>
                         <tr>
                             <th className="assembly-stages-checkbox-col">
-                                <input type="checkbox" checked={allSelected} onChange={onToggleAll} />
+                                <input
+                                    type="checkbox"
+                                    checked={allVisibleSelected}
+                                    onChange={() => onToggleAll(filteredRows.map((row) => row.id))}
+                                />
                             </th>
                             {columns.map((column, index) => (
                                 <th key={`${column}-${index}`} style={{ width: `${columnWidths[index] || 160}px` }}>
-                                    <div className="assembly-stages-th-content">{column}</div>
+                                    <div className="assembly-stages-th-content">
+                                        <span>{column}</span>
+                                        <button type="button" className={`filter-trigger ${isColumnFiltered(index) ? 'active' : ''}`} onClick={() => openFilter(index)}>⏷</button>
+                                    </div>
+                                    {openFilterIndex === index && (
+                                        <div className="filter-popover" ref={filterPopoverRef} onClick={(event) => event.stopPropagation()}>
+                                            <div className="filter-popover-content">
+                                                <div className="filter-popover-top-actions">
+                                                    <button type="button" onClick={() => setPendingFilters((prev) => ({ ...prev, [index]: [...(filterOptions[index] || [])] }))}>Выбрать все</button>
+                                                    <button type="button" onClick={() => setPendingFilters((prev) => ({ ...prev, [index]: [] }))}>Сбросить</button>
+                                                </div>
+                                                {(filterOptions[index] || []).map((value) => (
+                                                    <label key={`${index}-${value}`}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={(pendingFilters[index] || []).includes(value)}
+                                                            onChange={() => setPendingFilters((prev) => {
+                                                                const nextValues = new Set(prev[index] || []);
+                                                                if (nextValues.has(value)) {
+                                                                    nextValues.delete(value);
+                                                                } else {
+                                                                    nextValues.add(value);
+                                                                }
+
+                                                                return {
+                                                                    ...prev,
+                                                                    [index]: [...nextValues]
+                                                                };
+                                                            })}
+                                                        />
+                                                        {value || 'Пусто'}
+                                                    </label>
+                                                ))}
+                                            </div>
+                                            <div className="filter-popover-actions">
+                                                <button type="button" className="save-btn" onClick={() => {
+                                                    const allValues = filterOptions[index] || [];
+                                                    const selectedValues = pendingFilters[index] || [];
+                                                    setColumnFilters((prev) => ({
+                                                        ...prev,
+                                                        [index]: selectedValues.length === allValues.length ? [] : [...selectedValues]
+                                                    }));
+                                                    setOpenFilterIndex(null);
+                                                }}>
+                                                    Сохранить
+                                                </button>
+                                                <button type="button" className="cancel-btn" onClick={() => setOpenFilterIndex(null)}>Отмена</button>
+                                            </div>
+                                        </div>
+                                    )}
                                     <button
                                         type="button"
                                         className="assembly-stages-resize-handle"
@@ -199,13 +302,13 @@ const DataTable = ({
                         </tr>
                     </thead>
                     <tbody>
-                        {rows.length === 0 ? (
+                        {filteredRows.length === 0 ? (
                             <tr>
                                 <td colSpan={Math.max(columns.length + 1, 2)} className="assembly-stages-empty-row">{emptyMessage}</td>
                             </tr>
                         ) : (
-                            rows.map((row) => (
-                                <tr key={row.id}>
+                            filteredRows.map((row) => (
+                                <tr key={row.id} className={!selectedIds.has(row.id) ? 'assembly-stages-unchecked-row' : ''}>
                                     <td className="assembly-stages-checkbox-col">
                                         <input
                                             type="checkbox"
@@ -249,6 +352,7 @@ const AssemblyStagesWorkspace = () => {
     const [selectedTopIds, setSelectedTopIds] = useState(new Set());
     const [selectedBottomIds, setSelectedBottomIds] = useState(new Set());
     const [columnWidths, setColumnWidths] = useState({});
+    const [bottomSearchValue, setBottomSearchValue] = useState('');
     const [isSavingProcedure, setIsSavingProcedure] = useState(false);
 
     const typeColumnIndex = useMemo(() => findColumnIndex(tableColumns, ['тип', 'type']), [tableColumns]);
@@ -306,23 +410,53 @@ const AssemblyStagesWorkspace = () => {
         setColumnWidths((prev) => ({ ...prev, [columnIndex]: width }));
     };
 
-    const onToggleAllTopRows = () => {
-        if (topRows.length === 0) {
+    const onToggleAllTopRows = (visibleRowIds) => {
+        if (visibleRowIds.length === 0) {
             return;
         }
 
-        const allSelected = topRows.every((row) => selectedTopIds.has(row.id));
-        setSelectedTopIds(allSelected ? new Set() : new Set(topRows.map((row) => row.id)));
+        const allSelected = visibleRowIds.every((id) => selectedTopIds.has(id));
+        setSelectedTopIds((prev) => {
+            const next = new Set(prev);
+            visibleRowIds.forEach((id) => {
+                if (allSelected) {
+                    next.delete(id);
+                } else {
+                    next.add(id);
+                }
+            });
+            return next;
+        });
     };
 
-    const onToggleAllBottomRows = () => {
-        if (bottomRows.length === 0) {
+    const onToggleAllBottomRows = (visibleRowIds) => {
+        if (visibleRowIds.length === 0) {
             return;
         }
 
-        const allSelected = bottomRows.every((row) => selectedBottomIds.has(row.id));
-        setSelectedBottomIds(allSelected ? new Set() : new Set(bottomRows.map((row) => row.id)));
+        const allSelected = visibleRowIds.every((id) => selectedBottomIds.has(id));
+        setSelectedBottomIds((prev) => {
+            const next = new Set(prev);
+            visibleRowIds.forEach((id) => {
+                if (allSelected) {
+                    next.delete(id);
+                } else {
+                    next.add(id);
+                }
+            });
+            return next;
+        });
     };
+
+    const searchedBottomRows = useMemo(() => {
+        const normalizedSearch = bottomSearchValue.trim().toLowerCase();
+
+        if (!normalizedSearch) {
+            return bottomRows;
+        }
+
+        return bottomRows.filter((row) => row.values.some((value) => String(value || '').toLowerCase().includes(normalizedSearch)));
+    }, [bottomRows, bottomSearchValue]);
 
     const handleLoadSpecification = async (event) => {
         const file = event.target.files?.[0];
@@ -340,6 +474,7 @@ const AssemblyStagesWorkspace = () => {
             setSelectedTopIds(new Set());
             setSelectedBottomIds(new Set());
             setColumnWidths({});
+            setBottomSearchValue('');
         } catch {
             alert('Не удалось прочитать Excel-файл. Проверьте формат .xls/.xlsx и повторите попытку.');
         } finally {
@@ -494,12 +629,19 @@ const AssemblyStagesWorkspace = () => {
                         <div className="assembly-stages-transfer-panel">
                             <button type="button" onClick={moveUp} disabled={selectedBottomIds.size === 0}>UP</button>
                             <button type="button" onClick={moveDown} disabled={selectedTopIds.size === 0}>Down</button>
+                            <input
+                                type="search"
+                                value={bottomSearchValue}
+                                onChange={(event) => setBottomSearchValue(event.target.value)}
+                                className="assembly-stages-search"
+                                placeholder="Поиск по нижней таблице"
+                            />
                         </div>
 
                         <DataTable
                             title="Спецификация"
                             columns={tableColumns}
-                            rows={bottomRows}
+                            rows={searchedBottomRows}
                             selectedIds={selectedBottomIds}
                             onToggleRow={onToggleBottomRow}
                             onToggleAll={onToggleAllBottomRows}

@@ -373,7 +373,10 @@ const KDCheckView = ({
     return (
         <section className="design-docs-page design-docs-check-page">
             <div className="check-toolbar">
-                <button type="button" onClick={() => verifyInputRef.current?.click()}>📥 Загрузить Excel</button>
+                <button type="button" className="main-field-btn" onClick={() => verifyInputRef.current?.click()}>
+                    <span className="main-field-btn__icon" aria-hidden="true">📥</span>
+                    <span className="main-field-btn__label">Загрузить Excel</span>
+                </button>
                 <input
                     ref={verifyInputRef}
                     type="file"
@@ -381,9 +384,18 @@ const KDCheckView = ({
                     className="hidden-input"
                     onChange={onExcelUpload}
                 />
-                <button type="button" onClick={onRunVerification} disabled={verificationInProgress}>✅ {verificationInProgress ? 'Верификация...' : 'Верификация'}</button>
-                <button type="button" onClick={onRunNamingCheck} disabled={namingCheckInProgress}>🏷️ {namingCheckInProgress ? 'Проверка...' : 'Нейминг'}</button>
-                <button type="button" onClick={onRunGeneralCheck} disabled={generalCheckInProgress || verificationInProgress || namingCheckInProgress}>🧩 {generalCheckInProgress ? 'Проверка...' : 'Общая проверка КД'}</button>
+                <button type="button" className="main-field-btn" onClick={onRunVerification} disabled={verificationInProgress}>
+                    <span className="main-field-btn__icon" aria-hidden="true">✅</span>
+                    <span className="main-field-btn__label">{verificationInProgress ? 'Верификация...' : 'Верификация'}</span>
+                </button>
+                <button type="button" className="main-field-btn" onClick={onRunNamingCheck} disabled={namingCheckInProgress}>
+                    <span className="main-field-btn__icon" aria-hidden="true">🏷️</span>
+                    <span className="main-field-btn__label">{namingCheckInProgress ? 'Проверка...' : 'Нейминг'}</span>
+                </button>
+                <button type="button" className="main-field-btn" onClick={onRunGeneralCheck} disabled={generalCheckInProgress || verificationInProgress || namingCheckInProgress}>
+                    <span className="main-field-btn__icon" aria-hidden="true">🧩</span>
+                    <span className="main-field-btn__label">{generalCheckInProgress ? 'Проверка...' : 'Общая проверка КД'}</span>
+                </button>
                 <label className="kd-search-control">
                     <span>🔎 Поиск</span>
                     <input

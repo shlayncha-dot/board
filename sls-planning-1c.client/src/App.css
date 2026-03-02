@@ -857,6 +857,43 @@
     align-items: center;
 }
 
+.check-toolbar .main-field-btn {
+    display: inline-flex;
+    align-items: stretch;
+    padding: 0;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #636363;
+    color: #fff;
+    min-height: 40px;
+}
+
+.check-toolbar .main-field-btn__icon {
+    width: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.16);
+    border-right: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.check-toolbar .main-field-btn__label {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 16px;
+    color: #fff;
+    font-size: 14px;
+}
+
+.check-toolbar .main-field-btn:hover:not(:disabled) {
+    background: #595959;
+}
+
+.check-toolbar .main-field-btn:disabled {
+    opacity: 0.58;
+    cursor: not-allowed;
+}
+
 .kd-search-control {
     display: inline-flex;
     align-items: center;

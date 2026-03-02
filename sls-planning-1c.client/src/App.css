@@ -1093,6 +1093,15 @@
     gap: 5px;
 }
 
+.filter-popover-top-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.filter-popover-top-actions button {
+    flex: 1;
+}
+
 .filter-popover button {
     border: none;
     border-radius: 8px;

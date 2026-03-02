@@ -583,18 +583,20 @@ const KDCheckView = ({
                                     {openFilterKey === column.key && (
                                         <div className="filter-popover" ref={filterPopoverRef} onClick={(event) => event.stopPropagation()}>
                                             <div className="filter-popover-content">
-                                                <button type="button" onClick={() => setPendingFilters((prevState) => ({
-                                                    ...prevState,
-                                                    [column.key]: [...(filterOptions[column.key] || [])]
-                                                }))}>
-                                                    Выбрать все
-                                                </button>
-                                                <button type="button" onClick={() => setPendingFilters((prevState) => ({
-                                                    ...prevState,
-                                                    [column.key]: []
-                                                }))}>
-                                                    Сбросить
-                                                </button>
+                                                <div className="filter-popover-top-actions">
+                                                    <button type="button" onClick={() => setPendingFilters((prevState) => ({
+                                                        ...prevState,
+                                                        [column.key]: [...(filterOptions[column.key] || [])]
+                                                    }))}>
+                                                        Выбрать все
+                                                    </button>
+                                                    <button type="button" onClick={() => setPendingFilters((prevState) => ({
+                                                        ...prevState,
+                                                        [column.key]: []
+                                                    }))}>
+                                                        Сбросить
+                                                    </button>
+                                                </div>
                                                 {(filterOptions[column.key] || []).map((value) => (
                                                     <label key={value}>
                                                         <input

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import SpecificationUploadView from './designDocs/SpecificationUploadView';
 import KDCheckView from './designDocs/KDCheckView';
 import DesignDocsSettingsView from './designDocs/DesignDocsSettingsView';
+import SpecificationsListView from './designDocs/SpecificationsListView';
 import { specificationUploadApi, verificationApi } from '../config/apiConfig';
 import { extractRowsForNamingCheck } from '../services/namingCheckService';
 
@@ -219,6 +220,9 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
     const [savedVerificationParams, setSavedVerificationParams] = useState(createVerificationParams);
     const [specificationSettings, setSpecificationSettings] = useState(createSpecificationSettings);
     const [savedSpecificationSettings, setSavedSpecificationSettings] = useState(createSpecificationSettings);
+    const [specificationsList, setSpecificationsList] = useState([]);
+    const [selectedSpecification, setSelectedSpecification] = useState(null);
+    const [isEditSaving, setIsEditSaving] = useState(false);
 
     const [tableColumns, setTableColumns] = useState(defaultTableColumns);
     const [tableRows, setTableRows] = useState(sampleSpecs);
@@ -997,6 +1001,103 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
         setSpecificationSettings({ ...savedSpecificationSettings });
     };
 
+    const fetchAllSpecifications = useCallback(async () => {
+        try {
+            const response = await fetch(specificationUploadApi.specifications);
+            if (!response.ok) {
+                throw new Error('Не удалось загрузить список спецификаций.');
+            }
+
+            const data = await response.json();
+            setSpecificationsList(Array.isArray(data) ? data : []);
+        } catch (error) {
+            alert(error instanceof Error ? error.message : 'Ошибка загрузки списка спецификаций.');
+        }
+    }, []);
+
+    useEffect(() => {
+        if (activeSubItem === 1) {
+            fetchAllSpecifications();
+        }
+    }, [activeSubItem, fetchAllSpecifications]);
+
+    const groupedSpecifications = useMemo(() => {
+        const groups = new Map();
+
+        specificationsList.forEach((row) => {
+            const key = String(row.productName || '').trim() || 'Без наименования';
+            if (!groups.has(key)) {
+                groups.set(key, []);
+            }
+
+            groups.get(key).push(row);
+        });
+
+        return Array.from(groups.entries())
+            .sort((a, b) => a[0].localeCompare(b[0], 'ru'))
+            .map(([productName, specifications]) => ({
+                productName,
+                specifications: specifications.sort((a, b) => new Date(b.uploadedAtUtc) - new Date(a.uploadedAtUtc))
+            }));
+    }, [specificationsList]);
+
+    const handleOpenSpecificationEdit = useCallback((row) => {
+        const date = row.uploadedAtUtc ? new Date(row.uploadedAtUtc) : null;
+        const localDate = date && !Number.isNaN(date.getTime())
+            ? new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+            : '';
+
+        setSelectedSpecification({
+            ...row,
+            uploadedAtUtcLocal: localDate
+        });
+    }, []);
+
+    const handleEditSpecificationField = useCallback((field, value) => {
+        setSelectedSpecification((prev) => (prev ? { ...prev, [field]: value } : prev));
+    }, []);
+
+    const handleSaveEditedSpecification = useCallback(async () => {
+        if (!selectedSpecification) {
+            return;
+        }
+
+        setIsEditSaving(true);
+        try {
+            const payload = {
+                specificationCode: selectedSpecification.specificationCode,
+                productName: selectedSpecification.productName,
+                specificationName: selectedSpecification.specificationName,
+                specType: selectedSpecification.specType,
+                version: Number(selectedSpecification.version) || 1,
+                uploadedBy: selectedSpecification.uploadedBy || '',
+                comment: selectedSpecification.comment || '',
+                uploadedAtUtc: selectedSpecification.uploadedAtUtcLocal
+                    ? new Date(selectedSpecification.uploadedAtUtcLocal).toISOString()
+                    : null
+            };
+
+            const response = await fetch(specificationUploadApi.specifications, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error('Не удалось сохранить изменения спецификации.');
+            }
+
+            await fetchAllSpecifications();
+            setSelectedSpecification(null);
+        } catch (error) {
+            alert(error instanceof Error ? error.message : 'Ошибка сохранения спецификации.');
+        } finally {
+            setIsEditSaving(false);
+        }
+    }, [fetchAllSpecifications, selectedSpecification]);
+
     return (
         <>
             <div className={`design-docs-subview ${activeSubItem === 0 ? 'active' : ''}`}>
@@ -1024,7 +1125,20 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
                 />
             </div>
 
+
             <div className={`design-docs-subview ${activeSubItem === 1 ? 'active' : ''}`}>
+                <SpecificationsListView
+                    groupedSpecifications={groupedSpecifications}
+                    selectedSpecification={selectedSpecification}
+                    onRowDoubleClick={handleOpenSpecificationEdit}
+                    onCloseModal={() => setSelectedSpecification(null)}
+                    onEditField={handleEditSpecificationField}
+                    onSaveEdit={handleSaveEditedSpecification}
+                    isSaving={isEditSaving}
+                />
+            </div>
+
+            <div className={`design-docs-subview ${activeSubItem === 2 ? 'active' : ''}`}>
                 <KDCheckView
                     verifyInputRef={verifyInputRef}
                     sortedRows={sortedRows}
@@ -1062,7 +1176,7 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
                 />
             </div>
 
-            <div className={`design-docs-subview ${activeSubItem !== 0 && activeSubItem !== 1 ? 'active' : ''}`}>
+            <div className={`design-docs-subview ${activeSubItem !== 0 && activeSubItem !== 1 && activeSubItem !== 2 ? 'active' : ''}`}>
                 <DesignDocsSettingsView
                     verificationParams={verificationParams}
                     onVerificationParamChange={handleVerificationParamChange}

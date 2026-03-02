@@ -2606,3 +2606,31 @@
         grid-template-columns: 1fr;
     }
 }
+
+.spec-list-table-wrap {
+  max-height: 65vh;
+  overflow: auto;
+}
+
+.spec-product-row td {
+  font-weight: 700;
+  background: #f0f3fa;
+}
+
+.spec-item-row {
+  cursor: pointer;
+}
+
+.spec-item-name {
+  padding-left: 20px;
+}
+
+.spec-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.spec-edit-comment {
+  grid-column: 1 / -1;
+}

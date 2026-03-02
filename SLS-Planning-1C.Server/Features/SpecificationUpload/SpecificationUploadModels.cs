@@ -50,6 +50,18 @@ public sealed class SpecificationUploadResultDto
     public SpecificationRecordDto? CreatedSpecification { get; set; }
 }
 
+public sealed class UpdateSpecificationRequestDto
+{
+    public string SpecificationCode { get; set; } = string.Empty;
+    public string ProductName { get; set; } = string.Empty;
+    public string SpecificationName { get; set; } = string.Empty;
+    public SpecificationType SpecType { get; set; }
+    public int Version { get; set; }
+    public string UploadedBy { get; set; } = string.Empty;
+    public string Comment { get; set; } = string.Empty;
+    public DateTimeOffset? UploadedAtUtc { get; set; }
+}
+
 public sealed class ProductNamesResponseDto
 {
     public List<string> ProductNames { get; set; } = [];

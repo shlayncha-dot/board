@@ -25,15 +25,29 @@ public sealed class SpecificationUploadController : ControllerBase
     }
 
     [HttpGet("specifications")]
-    public async Task<ActionResult<IReadOnlyList<SpecificationRecordDto>>> GetSpecifications([FromQuery] string productName, CancellationToken cancellationToken)
+    public async Task<ActionResult<IReadOnlyList<SpecificationRecordDto>>> GetSpecifications([FromQuery] string? productName, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(productName))
         {
-            return Ok(Array.Empty<SpecificationRecordDto>());
+            var allSpecifications = await _store.GetAllSpecificationsAsync(cancellationToken);
+            return Ok(allSpecifications);
         }
 
         var specifications = await _store.GetSpecificationsByProductAsync(productName, cancellationToken);
         return Ok(specifications);
+    }
+
+
+    [HttpPut("specifications")]
+    public async Task<ActionResult<SpecificationRecordDto>> UpdateSpecification([FromBody] UpdateSpecificationRequestDto request, CancellationToken cancellationToken)
+    {
+        var updated = await _store.UpdateAsync(request, cancellationToken);
+        if (updated is null)
+        {
+            return NotFound(new { message = "Спецификация не найдена." });
+        }
+
+        return Ok(updated);
     }
 
     [HttpGet("next-version")]

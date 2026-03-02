@@ -5,8 +5,10 @@ namespace SLS_Planning_1C.Server.Features.SpecificationUpload;
 public interface ISpecificationUploadStore
 {
     Task<IReadOnlyList<string>> GetProductNamesAsync(CancellationToken cancellationToken);
+    Task<IReadOnlyList<SpecificationRecordDto>> GetAllSpecificationsAsync(CancellationToken cancellationToken);
     Task<IReadOnlyList<SpecificationRecordDto>> GetSpecificationsByProductAsync(string productName, CancellationToken cancellationToken);
     Task<int> GetNextVersionAsync(string productName, SpecificationType specType, CancellationToken cancellationToken);
+    Task<SpecificationRecordDto?> UpdateAsync(UpdateSpecificationRequestDto request, CancellationToken cancellationToken);
     Task<SpecificationUploadResultDto> UploadAsync(SpecificationUploadRequest request, CancellationToken cancellationToken);
 }
 
@@ -69,6 +71,24 @@ public sealed class SpecificationUploadStore : ISpecificationUploadStore
             return db.Specifications
                 .Where(row => string.Equals(row.ProductName, normalizedProductName, StringComparison.OrdinalIgnoreCase))
                 .OrderByDescending(row => row.UploadedAtUtc)
+                .ToList();
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    public async Task<IReadOnlyList<SpecificationRecordDto>> GetAllSpecificationsAsync(CancellationToken cancellationToken)
+    {
+        await _semaphore.WaitAsync(cancellationToken);
+        try
+        {
+            var db = await ReadUnsafeAsync(cancellationToken);
+            return db.Specifications
+                .OrderBy(row => row.ProductName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(row => row.SpecificationName, StringComparer.OrdinalIgnoreCase)
+                .ThenByDescending(row => row.UploadedAtUtc)
                 .ToList();
         }
         finally
@@ -189,6 +209,43 @@ public sealed class SpecificationUploadStore : ISpecificationUploadStore
                 Success = false,
                 Message = $"Ошибка загрузки спецификации: {ex.Message}"
             };
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    public async Task<SpecificationRecordDto?> UpdateAsync(UpdateSpecificationRequestDto request, CancellationToken cancellationToken)
+    {
+        var specificationCode = request.SpecificationCode.Trim();
+        if (string.IsNullOrWhiteSpace(specificationCode))
+        {
+            return null;
+        }
+
+        await _semaphore.WaitAsync(cancellationToken);
+        try
+        {
+            var db = await ReadUnsafeAsync(cancellationToken);
+            var existing = db.Specifications.FirstOrDefault(row =>
+                string.Equals(row.SpecificationCode, specificationCode, StringComparison.OrdinalIgnoreCase));
+
+            if (existing is null)
+            {
+                return null;
+            }
+
+            existing.ProductName = request.ProductName.Trim();
+            existing.SpecificationName = request.SpecificationName.Trim();
+            existing.SpecType = request.SpecType;
+            existing.Version = request.Version <= 0 ? existing.Version : request.Version;
+            existing.UploadedBy = request.UploadedBy.Trim();
+            existing.Comment = request.Comment.Trim();
+            existing.UploadedAtUtc = request.UploadedAtUtc ?? existing.UploadedAtUtc;
+
+            await WriteUnsafeAsync(db, cancellationToken);
+            return existing;
         }
         finally
         {

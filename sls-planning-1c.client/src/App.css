@@ -2502,7 +2502,7 @@
     width: max-content;
     min-width: 100%;
     border-collapse: collapse;
-    table-layout: auto;
+    table-layout: fixed;
 }
 
 .assembly-stages-table th,
@@ -2516,7 +2516,9 @@
     font-size: 12px;
     line-height: 1.15;
     white-space: nowrap;
-    min-width: fit-content;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: clip;
 }
 
 .assembly-stages-table th {
@@ -2535,6 +2537,12 @@
     align-items: center;
     justify-content: space-between;
     gap: 6px;
+}
+
+.assembly-stages-th-content span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: clip;
 }
 
 .assembly-stages-resize-handle {
@@ -2563,7 +2571,7 @@
     color: #94a3b8;
 }
 
-.assembly-stages-unchecked-row td {
+.assembly-stages-checked-row td {
     background: #fef9c3;
 }
 

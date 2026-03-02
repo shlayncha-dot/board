@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createAssemblyProcedure, getAssemblyProcedures } from '../services/assemblyStagesService';
 
 const DEFAULT_PROCEDURE_TITLE = 'Процедура (не задано)';
-const MIN_COLUMN_WIDTH = 72;
+const MIN_COLUMN_WIDTH = 36;
 
 const formatNormativeTotalMinutes = (secondsTotal) => String(Math.ceil(secondsTotal / 60));
 
@@ -308,7 +308,7 @@ const DataTable = ({
                             </tr>
                         ) : (
                             filteredRows.map((row) => (
-                                <tr key={row.id} className={!selectedIds.has(row.id) ? 'assembly-stages-unchecked-row' : ''}>
+                                <tr key={row.id} className={selectedIds.has(row.id) ? 'assembly-stages-checked-row' : ''}>
                                     <td className="assembly-stages-checkbox-col">
                                         <input
                                             type="checkbox"

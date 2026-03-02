@@ -5,13 +5,7 @@ import DesignDocsSettingsView from './designDocs/DesignDocsSettingsView';
 import { specificationUploadApi, verificationApi } from '../config/apiConfig';
 import { extractRowsForNamingCheck } from '../services/namingCheckService';
 
-const sampleSpecs = [
-    { id: 1, code: 'A-1001', name: 'Корпус', material: 'Сталь', qty: 2 },
-    { id: 2, code: 'A-1002', name: 'Крышка', material: 'Алюминий', qty: 1 },
-    { id: 3, code: 'A-1003', name: 'Пластина', material: 'Нержавеющая сталь', qty: 4 },
-    { id: 4, code: 'A-1004', name: 'Кронштейн', material: 'Сталь', qty: 3 },
-    { id: 5, code: 'A-1005', name: 'Втулка', material: 'Латунь', qty: 6 }
-];
+const sampleSpecs = [];
 
 const defaultTableColumns = [
     { key: 'code', label: 'Код детали' },
@@ -117,6 +111,29 @@ const getColumnKey = (header, index) => {
         .replace(/[^\p{L}\p{N}_]/gu, '');
 
     return normalized ? `${normalized}_${index}` : `column_${index}`;
+};
+
+const normalizeValue = (value) => String(value ?? '').trim();
+
+const getColumnKeyByLabel = (columns, predicate) => {
+    const targetColumn = columns.find((column) => predicate(normalizeValue(column.label).toLowerCase()));
+    return targetColumn?.key || null;
+};
+
+const isAssemblyType = (typeValue) => normalizeValue(typeValue).toUpperCase().startsWith('СБ');
+
+const getAssemblyChildRowIds = (rows, positionColumnKey, parentPosition) => {
+    const normalizedParentPosition = normalizeValue(parentPosition);
+
+    if (!positionColumnKey || !normalizedParentPosition) {
+        return [];
+    }
+
+    const childPrefix = `${normalizedParentPosition}.`;
+
+    return rows
+        .filter((row) => normalizeValue(row[positionColumnKey]).startsWith(childPrefix))
+        .map((row) => row.id);
 };
 
 const ensureSheetJs = () => {
@@ -402,11 +419,35 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
     }, [checkedRows, visibleRowIds]);
 
     const toggleRow = useCallback((rowId) => {
-        setCheckedRows((prevState) => ({
-            ...prevState,
-            [rowId]: !prevState[rowId]
-        }));
-    }, []);
+        setCheckedRows((prevState) => {
+            const toggledRow = tableRows.find((row) => row.id === rowId);
+
+            if (!toggledRow) {
+                return prevState;
+            }
+
+            const nextCheckedValue = !prevState[rowId];
+            const nextState = {
+                ...prevState,
+                [rowId]: nextCheckedValue
+            };
+            const typeColumnKey = getColumnKeyByLabel(tableColumns, (label) => label === 'тип' || label.startsWith('тип '));
+            const positionColumnKey = getColumnKeyByLabel(tableColumns, (label) => label === 'поз' || label.startsWith('поз '));
+            const toggledType = typeColumnKey ? toggledRow[typeColumnKey] : null;
+
+            if (!isAssemblyType(toggledType)) {
+                return nextState;
+            }
+
+            const childRowIds = getAssemblyChildRowIds(tableRows, positionColumnKey, toggledRow[positionColumnKey]);
+
+            childRowIds.forEach((childRowId) => {
+                nextState[childRowId] = nextCheckedValue;
+            });
+
+            return nextState;
+        });
+    }, [tableColumns, tableRows]);
 
     const toggleAllVisible = useCallback(() => {
         setCheckedRows((prevState) => {

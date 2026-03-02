@@ -88,6 +88,8 @@ const KDCheckView = ({
     verificationIssuesByRowId,
     verificationReport,
     onCloseVerificationReport,
+    generalCheckReport,
+    onCloseGeneralCheckReport,
     designationTargetColumnKey
 }) => {
     const [openFilterKey, setOpenFilterKey] = React.useState(null);
@@ -497,6 +499,37 @@ const KDCheckView = ({
                                         </>
                                     )}
                                 </>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {generalCheckReport && (
+                <div className="verification-report-overlay" role="dialog" aria-modal="true">
+                    <div className="verification-report-modal general-check-report-modal">
+                        <div className="verification-report-header">
+                            <h3>Результат общей проверки КД</h3>
+                            <div className="verification-report-actions">
+                                <button type="button" onClick={onCloseGeneralCheckReport}>Закрыть</button>
+                            </div>
+                        </div>
+                        <div className="verification-report-body">
+                            {generalCheckReport.isSuccess ? (
+                                <p className="general-check-success">Проверка прошла успешно</p>
+                            ) : (
+                                <div className="general-check-blocks">
+                                    {generalCheckReport.blocks.map((block) => (
+                                        <div key={block.type} className="general-check-block">
+                                            <p className="general-check-block-title"><strong>{block.type}</strong></p>
+                                            <ul>
+                                                {block.items.map((item) => (
+                                                    <li key={`${block.type}-${item}`}>{item}</li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    ))}
+                                </div>
                             )}
                         </div>
                     </div>

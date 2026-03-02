@@ -1351,6 +1351,33 @@
     margin: 0;
 }
 
+.general-check-report-modal {
+    width: min(900px, 90vw);
+}
+
+.general-check-success {
+    margin: 0;
+    font-weight: 700;
+    color: #027a48;
+    font-size: 18px;
+}
+
+.general-check-blocks {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.general-check-block-title {
+    margin: 0 0 6px 0;
+    font-size: 15px;
+}
+
+.general-check-block ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
 .form-success {
     margin: 0;
     color: #027a48;

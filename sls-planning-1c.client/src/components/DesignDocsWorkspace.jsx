@@ -231,6 +231,7 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
     const [namingReport, setNamingReport] = useState(null);
     const [namingLogs, setNamingLogs] = useState([]);
     const [isNamingLogOpen, setIsNamingLogOpen] = useState(false);
+    const [generalCheckReport, setGeneralCheckReport] = useState(null);
 
     const appendNamingLog = useCallback((message) => {
         const timestamp = new Date().toLocaleTimeString();
@@ -561,6 +562,7 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
         setVerificationReport(null);
         setNamingIssuesByRowId({});
         setNamingReport(null);
+        setGeneralCheckReport(null);
     }, []);
 
     const handleExcelUpload = async (event) => {
@@ -812,14 +814,21 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
             const paintSidesColumn = findColumnByAliases(tableColumns, ['Кол-во сторон покраски', 'Количество сторон покраски']);
             const primerColumn = findColumnByAliases(tableColumns, ['Грунтовка']);
 
-            const issues = [];
+            const issuesByType = {
+                '1) Проверка столбцов': [],
+                '2) Проверка количества': [],
+                '3) Проверка обязательных полей деталей': [],
+                '4) Проверка покрытие': [],
+                '5) Проверка кол-ва сторон покраски': [],
+                '6) Проверка грунтовки': []
+            };
 
             if (missingColumns.length) {
-                issues.push(`1) Не найдены обязательные столбцы: ${missingColumns.join(', ')}`);
+                issuesByType['1) Проверка столбцов'].push(`Не найдены обязательные столбцы: ${missingColumns.join(', ')}`);
             }
 
             if (!qtyColumn) {
-                issues.push('2) Не найден столбец «Кол»/«Количество».');
+                issuesByType['2) Проверка количества'].push('Не найден столбец «Кол»/«Количество».');
             }
 
             const typesForRequiredFields = new Set(['деталь_св', 'деталь', 'деталь_кон']);
@@ -831,7 +840,7 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
                 if (qtyColumn) {
                     const qtyValue = Number.parseFloat(String(row[qtyColumn.key] ?? '').replace(',', '.'));
                     if (!Number.isFinite(qtyValue) || qtyValue <= 0) {
-                        issues.push(`2) Строка ${rowId}: в столбце «${qtyColumn.label}» должно быть число больше 0.`);
+                        issuesByType['2) Проверка количества'].push(`Строка ${rowId}: в столбце «${qtyColumn.label}» должно быть число больше 0.`);
                     }
                 }
 
@@ -840,31 +849,31 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
 
                 if (requiresDetailFields) {
                     if (!thicknessColumn || !normalizeValue(row[thicknessColumn.key])) {
-                        issues.push(`3) Строка ${rowId}: для ТИП «${row[typeColumn.key]}» заполните «Толщина (мм)».`);
+                        issuesByType['3) Проверка обязательных полей деталей'].push(`Строка ${rowId}: для ТИП «${row[typeColumn.key]}» заполните «Толщина (мм)».`);
                     }
 
                     if (!materialColumn || !normalizeValue(row[materialColumn.key])) {
-                        issues.push(`3) Строка ${rowId}: для ТИП «${row[typeColumn.key]}» заполните «Материал».`);
+                        issuesByType['3) Проверка обязательных полей деталей'].push(`Строка ${rowId}: для ТИП «${row[typeColumn.key]}» заполните «Материал».`);
                     }
 
                     if (!materialEnColumn || !normalizeValue(row[materialEnColumn.key])) {
-                        issues.push(`3) Строка ${rowId}: для ТИП «${row[typeColumn.key]}» заполните «Материал EN».`);
+                        issuesByType['3) Проверка обязательных полей деталей'].push(`Строка ${rowId}: для ТИП «${row[typeColumn.key]}» заполните «Материал EN».`);
                     }
                 }
 
                 if (coverageColumn && coverageOptions.length) {
                     const coverageValue = normalizeCellForCompare(row[coverageColumn.key]);
                     if (coverageValue && !coverageOptions.includes(coverageValue)) {
-                        issues.push(`4) Строка ${rowId}: значение «${row[coverageColumn.key]}» отсутствует в настройках «Покрытие».`);
+                        issuesByType['4) Проверка покрытие'].push(`Строка ${rowId}: значение «${row[coverageColumn.key]}» отсутствует в настройках «Покрытие».`);
                     }
 
                     if (coverageValue && coverageValue !== uncoatedValue) {
                         if (!paintSidesColumn) {
-                            issues.push('5) Не найден столбец «Кол-во сторон покраски».');
+                            issuesByType['5) Проверка кол-ва сторон покраски'].push('Не найден столбец «Кол-во сторон покраски».');
                         } else {
                             const sidesValue = normalizeValue(row[paintSidesColumn.key]);
                             if (sidesValue !== '1' && sidesValue !== '2') {
-                                issues.push(`5) Строка ${rowId}: для покрытия «${row[coverageColumn.key]}» в «${paintSidesColumn.label}» должно быть 1 или 2.`);
+                                issuesByType['5) Проверка кол-ва сторон покраски'].push(`Строка ${rowId}: для покрытия «${row[coverageColumn.key]}» в «${paintSidesColumn.label}» должно быть 1 или 2.`);
                             }
                         }
                     }
@@ -873,18 +882,31 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
                 if (primerColumn && primerOptions.length) {
                     const primerValue = normalizeCellForCompare(row[primerColumn.key]);
                     if (primerValue && !primerOptions.includes(primerValue)) {
-                        issues.push(`6) Строка ${rowId}: значение «${row[primerColumn.key]}» отсутствует в настройках «Грунтовка».`);
+                        issuesByType['6) Проверка грунтовки'].push(`Строка ${rowId}: значение «${row[primerColumn.key]}» отсутствует в настройках «Грунтовка».`);
                     }
                 }
             });
 
-            if (!issues.length) {
-                alert('Общая проверка КД пройдена успешно. Ошибок не найдено.');
+            const blocks = Object.entries(issuesByType)
+                .map(([type, items]) => ({ type, items }))
+                .filter((block) => block.items.length > 0)
+                .map((block) => ({
+                    ...block,
+                    items: [...new Set(block.items)]
+                }));
+
+            if (!blocks.length) {
+                setGeneralCheckReport({
+                    isSuccess: true,
+                    blocks: []
+                });
                 return;
             }
 
-            const report = ['Общая проверка КД: найдены ошибки.', '', ...issues].join('\n');
-            alert(report);
+            setGeneralCheckReport({
+                isSuccess: false,
+                blocks
+            });
         } finally {
             setGeneralCheckInProgress(false);
         }
@@ -1020,6 +1042,8 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
                     verificationIssuesByRowId={verificationIssuesByRowId}
                     verificationReport={verificationReport}
                     onCloseVerificationReport={() => setVerificationReport(null)}
+                    generalCheckReport={generalCheckReport}
+                    onCloseGeneralCheckReport={() => setGeneralCheckReport(null)}
                     designationTargetColumnKey={designationTargetColumnKey}
                 />
             </div>

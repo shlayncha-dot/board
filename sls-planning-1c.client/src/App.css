@@ -2484,8 +2484,8 @@
     overflow-y: auto;
     min-height: 0;
     min-width: 0;
-    height: calc(var(--assembly-stages-row-height) * 11);
-    max-height: calc(var(--assembly-stages-row-height) * 11);
+    height: calc(var(--assembly-stages-row-height) * 10);
+    max-height: calc(var(--assembly-stages-row-height) * 10);
     scrollbar-gutter: stable;
 }
 

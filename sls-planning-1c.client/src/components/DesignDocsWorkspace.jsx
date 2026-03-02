@@ -115,8 +115,8 @@ const getColumnKey = (header, index) => {
 
 const normalizeValue = (value) => String(value ?? '').trim();
 
-const parseSettingsList = (rawValue) => String(rawValue ?? '')
-    .split(/\r?\n|;|,/)
+const parseSettingsList = (rawValue, { splitByComma = true } = {}) => String(rawValue ?? '')
+    .split(splitByComma ? /\r?\n|;|,/ : /\r?\n|;/)
     .map((item) => item.trim())
     .filter(Boolean);
 
@@ -801,7 +801,7 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
         setGeneralCheckInProgress(true);
 
         try {
-            const requiredColumns = parseSettingsList(specificationSettings.columns);
+            const requiredColumns = parseSettingsList(specificationSettings.columns, { splitByComma: false });
             const coverageOptions = parseSettingsList(specificationSettings.coverage).map((item) => normalizeCellForCompare(item));
             const primerOptions = parseSettingsList(specificationSettings.primer).map((item) => normalizeCellForCompare(item));
 

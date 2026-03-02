@@ -2479,12 +2479,13 @@
 }
 
 .assembly-stages-table-scroll {
+    --assembly-stages-row-height: 28px;
     overflow-x: auto;
     overflow-y: auto;
     min-height: 0;
     min-width: 0;
-    height: calc(22px + (10 * 22px));
-    max-height: calc(22px + (10 * 22px));
+    height: calc(var(--assembly-stages-row-height) * 11);
+    max-height: calc(var(--assembly-stages-row-height) * 11);
     scrollbar-gutter: stable;
 }
 
@@ -2499,7 +2500,9 @@
 .assembly-stages-table td {
     border-right: 1px dashed #9a9a9a;
     border-bottom: 1px dashed #9a9a9a;
-    padding: 4px 8px;
+    box-sizing: border-box;
+    height: var(--assembly-stages-row-height, 28px);
+    padding: 0 8px;
     text-align: left;
     font-size: 12px;
     line-height: 1.15;

@@ -476,39 +476,40 @@ const AssemblyStagesWorkspace = () => {
                 />
             </header>
 
-            <div className="assembly-stages-content-grid">
-                <div className="assembly-stages-left-pane">
-                    <DataTable
-                        title={topTableTitle}
-                        columns={tableColumns}
-                        rows={topRows}
-                        selectedIds={selectedTopIds}
-                        onToggleRow={onToggleTopRow}
-                        onToggleAll={onToggleAllTopRows}
-                        emptyMessage="Данные пока не выбраны"
-                        columnWidths={columnWidths}
-                        onSetColumnWidth={setColumnWidth}
-                    />
+            <div className="assembly-stages-main-scroll">
+                <div className="assembly-stages-content-grid">
+                    <div className="assembly-stages-left-pane">
+                        <DataTable
+                            title={topTableTitle}
+                            columns={tableColumns}
+                            rows={topRows}
+                            selectedIds={selectedTopIds}
+                            onToggleRow={onToggleTopRow}
+                            onToggleAll={onToggleAllTopRows}
+                            emptyMessage="Данные пока не выбраны"
+                            columnWidths={columnWidths}
+                            onSetColumnWidth={setColumnWidth}
+                        />
 
-                    <div className="assembly-stages-transfer-panel">
-                        <button type="button" onClick={moveUp} disabled={selectedBottomIds.size === 0}>UP</button>
-                        <button type="button" onClick={moveDown} disabled={selectedTopIds.size === 0}>Down</button>
+                        <div className="assembly-stages-transfer-panel">
+                            <button type="button" onClick={moveUp} disabled={selectedBottomIds.size === 0}>UP</button>
+                            <button type="button" onClick={moveDown} disabled={selectedTopIds.size === 0}>Down</button>
+                        </div>
+
+                        <DataTable
+                            title="Спецификация"
+                            columns={tableColumns}
+                            rows={bottomRows}
+                            selectedIds={selectedBottomIds}
+                            onToggleRow={onToggleBottomRow}
+                            onToggleAll={onToggleAllBottomRows}
+                            emptyMessage="Спецификация не загружена"
+                            columnWidths={columnWidths}
+                            onSetColumnWidth={setColumnWidth}
+                        />
                     </div>
 
-                    <DataTable
-                        title="Спецификация"
-                        columns={tableColumns}
-                        rows={bottomRows}
-                        selectedIds={selectedBottomIds}
-                        onToggleRow={onToggleBottomRow}
-                        onToggleAll={onToggleAllBottomRows}
-                        emptyMessage="Спецификация не загружена"
-                        columnWidths={columnWidths}
-                        onSetColumnWidth={setColumnWidth}
-                    />
-                </div>
-
-                <aside className="assembly-stages-right-pane">
+                    <aside className="assembly-stages-right-pane">
                     <label htmlFor="specification-name">Название спецификации</label>
                     <input
                         id="specification-name"
@@ -585,7 +586,8 @@ const AssemblyStagesWorkspace = () => {
                             </tfoot>
                         </table>
                     </div>
-                </aside>
+                    </aside>
+                </div>
             </div>
         </section>
     );

@@ -2412,7 +2412,14 @@
     gap: 8px;
     min-height: 0;
     min-width: 0;
+}
+
+.assembly-stages-main-scroll {
+    min-height: 0;
+    min-width: 0;
     flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .assembly-stages-left-pane {
@@ -2486,8 +2493,8 @@
     overflow-y: auto;
     min-height: 0;
     min-width: 0;
-    height: calc(var(--assembly-stages-row-height) * 11);
-    max-height: calc(var(--assembly-stages-row-height) * 11);
+    height: calc(var(--assembly-stages-row-height) * 12);
+    max-height: calc(var(--assembly-stages-row-height) * 12);
     scrollbar-gutter: stable;
 }
 

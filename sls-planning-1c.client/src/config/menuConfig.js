@@ -1,7 +1,7 @@
 export const menuConfig = [
   {
     labelKey: 'menu.designDocs',
-    subMenuKeys: ['submenu.specUpload', 'submenu.kdCheck', 'common.settings']
+    subMenuKeys: ['submenu.specUpload', 'submenu.specList', 'submenu.kdCheck', 'common.settings']
   },
   {
     labelKey: 'menu.technologist',

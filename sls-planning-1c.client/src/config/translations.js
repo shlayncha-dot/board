@@ -80,6 +80,7 @@ const translations = {
     'menu.kitting': 'Комплектовщик',
 
     'submenu.specUpload': 'Загрузка спецификации',
+    'submenu.specList': 'Список спецификаций',
     'submenu.kdCheck': 'Проверка КД',
     'submenu.routeSheets': 'Маршрутные листы',
     'submenu.techSpecUpload': 'Загрузка технологической спецификации',
@@ -184,6 +185,7 @@ const translations = {
     'menu.kitting': 'Kitting',
 
     'submenu.specUpload': 'Specification upload',
+    'submenu.specList': 'Specification list',
     'submenu.kdCheck': 'Design docs check',
     'submenu.routeSheets': 'Route sheets',
     'submenu.techSpecUpload': 'Technology spec upload',
@@ -288,6 +290,7 @@ const translations = {
     'menu.kitting': 'კომპლექტაცია',
 
     'submenu.specUpload': 'სპეციფიკაციის ატვირთვა',
+    'submenu.specList': 'სპეციფიკაციების სია',
     'submenu.kdCheck': 'კდ შემოწმება',
     'submenu.routeSheets': 'მარშრუტის ფურცლები',
     'submenu.techSpecUpload': 'ტექნოლოგიური სპეციფიკაციის ატვირთვა',

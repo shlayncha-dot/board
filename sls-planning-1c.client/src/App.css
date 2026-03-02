@@ -2606,3 +2606,39 @@
         grid-template-columns: 1fr;
     }
 }
+
+.spec-list-error {
+    margin: 10px 0 0;
+    color: #c62828;
+    font-size: 14px;
+}
+
+.spec-list-table-wrap {
+    margin-top: 14px;
+    border: 1px solid #ececec;
+    border-radius: 10px;
+    overflow: auto;
+    max-height: 480px;
+}
+
+.spec-list-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 860px;
+}
+
+.spec-list-table th,
+.spec-list-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #f0f0f0;
+    text-align: left;
+    font-size: 14px;
+    vertical-align: top;
+}
+
+.spec-list-table th {
+    position: sticky;
+    top: 0;
+    background: #fafafa;
+    z-index: 1;
+}

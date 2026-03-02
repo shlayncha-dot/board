@@ -61,8 +61,18 @@ const parseTableFromExcel = async (file) => {
 
 const findColumnIndex = (columns, variants) => columns.findIndex((column) => {
     const normalizedColumn = String(column || '').trim().toLowerCase();
-    return variants.some((variant) => normalizedColumn === variant);
+    return variants.some((variant) => normalizedColumn === variant || normalizedColumn.startsWith(`${variant} `) || normalizedColumn.includes(variant));
 });
+
+const isAssemblyType = (rawTypeValue) => {
+    const normalizedType = String(rawTypeValue || '').trim().toUpperCase();
+
+    if (!normalizedType) {
+        return false;
+    }
+
+    return ['СБ', 'СБОРКА', 'ПОДСБОРКА', 'СБОРОЧНАЯ ЕДИНИЦА'].includes(normalizedType) || normalizedType.startsWith('СБ ');
+};
 
 const isChildPoz = (parentPoz, candidatePoz) => {
     const parent = String(parentPoz || '').trim();
@@ -84,9 +94,14 @@ const getRowAndChildrenIds = (rows, sourceId, typeColumnIndex, pozColumnIndex) =
         return [];
     }
 
-    const rowType = String(row.values[typeColumnIndex] || '').trim().toUpperCase();
+    if (pozColumnIndex < 0) {
+        return [sourceId];
+    }
 
-    if (rowType !== 'СБ') {
+    const rowType = typeColumnIndex >= 0 ? row.values[typeColumnIndex] : '';
+    const shouldExpandHierarchy = typeColumnIndex < 0 || isAssemblyType(rowType);
+
+    if (!shouldExpandHierarchy) {
         return [sourceId];
     }
 
@@ -236,8 +251,8 @@ const AssemblyStagesWorkspace = () => {
     const [columnWidths, setColumnWidths] = useState({});
     const [isSavingProcedure, setIsSavingProcedure] = useState(false);
 
-    const typeColumnIndex = useMemo(() => findColumnIndex(tableColumns, ['тип']), [tableColumns]);
-    const pozColumnIndex = useMemo(() => findColumnIndex(tableColumns, ['поз']), [tableColumns]);
+    const typeColumnIndex = useMemo(() => findColumnIndex(tableColumns, ['тип', 'type']), [tableColumns]);
+    const pozColumnIndex = useMemo(() => findColumnIndex(tableColumns, ['поз', 'позиц']), [tableColumns]);
 
     const topTableTitle = useMemo(() => {
         const value = procedureName.trim();

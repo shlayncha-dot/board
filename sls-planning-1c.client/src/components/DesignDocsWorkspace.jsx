@@ -115,7 +115,14 @@ const getColumnKey = (header, index) => {
 
 const normalizeValue = (value) => String(value ?? '').trim();
 
+const parseSettingsList = (rawValue) => String(rawValue ?? '')
+    .split(/\r?\n|;|,/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
 const normalizeLabelForMatch = (label) => normalizeValue(label).toLowerCase().replace(/[\s._-]+/g, '');
+
+const normalizeCellForCompare = (value) => normalizeValue(value).toLowerCase();
 
 const isTypeLabel = (label) => {
     const normalized = normalizeLabelForMatch(label);
@@ -130,6 +137,11 @@ const isPositionLabel = (label) => {
 const getColumnKeyByLabel = (columns, predicate) => {
     const targetColumn = columns.find((column) => predicate(normalizeValue(column.label).toLowerCase()));
     return targetColumn?.key || null;
+};
+
+const findColumnByAliases = (columns, aliases) => {
+    const normalizedAliases = aliases.map((alias) => normalizeLabelForMatch(alias));
+    return columns.find((column) => normalizedAliases.includes(normalizeLabelForMatch(column.label))) || null;
 };
 
 const isAssemblyType = (typeValue) => normalizeValue(typeValue).toUpperCase().startsWith('СБ');
@@ -780,16 +792,103 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
         }
     }, [appendNamingLog, namingLogin, sortedRows, tableColumns]);
 
-    const runGeneralCheck = useCallback(async () => {
+    const runGeneralCheck = useCallback(() => {
         setGeneralCheckInProgress(true);
 
         try {
-            await runVerification();
-            await runNamingCheck();
+            const requiredColumns = parseSettingsList(specificationSettings.columns);
+            const coverageOptions = parseSettingsList(specificationSettings.coverage).map((item) => normalizeCellForCompare(item));
+            const primerOptions = parseSettingsList(specificationSettings.primer).map((item) => normalizeCellForCompare(item));
+
+            const availableColumns = tableColumns.map((column) => normalizeCellForCompare(column.label));
+            const missingColumns = requiredColumns.filter((columnName) => !availableColumns.includes(normalizeCellForCompare(columnName)));
+
+            const qtyColumn = findColumnByAliases(tableColumns, ['Кол', 'Количество']);
+            const typeColumn = findColumnByAliases(tableColumns, ['Тип']);
+            const thicknessColumn = findColumnByAliases(tableColumns, ['Толщина (мм)', 'Толщина']);
+            const materialColumn = findColumnByAliases(tableColumns, ['Материал']);
+            const materialEnColumn = findColumnByAliases(tableColumns, ['Материал EN', 'МатериалEN']);
+            const coverageColumn = findColumnByAliases(tableColumns, ['Покрытие']);
+            const paintSidesColumn = findColumnByAliases(tableColumns, ['Кол-во сторон покраски', 'Количество сторон покраски']);
+            const primerColumn = findColumnByAliases(tableColumns, ['Грунтовка']);
+
+            const issues = [];
+
+            if (missingColumns.length) {
+                issues.push(`1) Не найдены обязательные столбцы: ${missingColumns.join(', ')}`);
+            }
+
+            if (!qtyColumn) {
+                issues.push('2) Не найден столбец «Кол»/«Количество».');
+            }
+
+            const typesForRequiredFields = new Set(['деталь_св', 'деталь', 'деталь_кон']);
+            const uncoatedValue = normalizeCellForCompare('Без покрытия/Uncoated');
+
+            sortedRows.forEach((row) => {
+                const rowId = row.id;
+
+                if (qtyColumn) {
+                    const qtyValue = Number.parseFloat(String(row[qtyColumn.key] ?? '').replace(',', '.'));
+                    if (!Number.isFinite(qtyValue) || qtyValue <= 0) {
+                        issues.push(`2) Строка ${rowId}: в столбце «${qtyColumn.label}» должно быть число больше 0.`);
+                    }
+                }
+
+                const typeValue = normalizeCellForCompare(typeColumn ? row[typeColumn.key] : '');
+                const requiresDetailFields = typesForRequiredFields.has(typeValue);
+
+                if (requiresDetailFields) {
+                    if (!thicknessColumn || !normalizeValue(row[thicknessColumn.key])) {
+                        issues.push(`3) Строка ${rowId}: для ТИП «${row[typeColumn.key]}» заполните «Толщина (мм)».`);
+                    }
+
+                    if (!materialColumn || !normalizeValue(row[materialColumn.key])) {
+                        issues.push(`3) Строка ${rowId}: для ТИП «${row[typeColumn.key]}» заполните «Материал».`);
+                    }
+
+                    if (!materialEnColumn || !normalizeValue(row[materialEnColumn.key])) {
+                        issues.push(`3) Строка ${rowId}: для ТИП «${row[typeColumn.key]}» заполните «Материал EN».`);
+                    }
+                }
+
+                if (coverageColumn && coverageOptions.length) {
+                    const coverageValue = normalizeCellForCompare(row[coverageColumn.key]);
+                    if (coverageValue && !coverageOptions.includes(coverageValue)) {
+                        issues.push(`4) Строка ${rowId}: значение «${row[coverageColumn.key]}» отсутствует в настройках «Покрытие».`);
+                    }
+
+                    if (coverageValue && coverageValue !== uncoatedValue) {
+                        if (!paintSidesColumn) {
+                            issues.push('5) Не найден столбец «Кол-во сторон покраски».');
+                        } else {
+                            const sidesValue = normalizeValue(row[paintSidesColumn.key]);
+                            if (sidesValue !== '1' && sidesValue !== '2') {
+                                issues.push(`5) Строка ${rowId}: для покрытия «${row[coverageColumn.key]}» в «${paintSidesColumn.label}» должно быть 1 или 2.`);
+                            }
+                        }
+                    }
+                }
+
+                if (primerColumn && primerOptions.length) {
+                    const primerValue = normalizeCellForCompare(row[primerColumn.key]);
+                    if (primerValue && !primerOptions.includes(primerValue)) {
+                        issues.push(`6) Строка ${rowId}: значение «${row[primerColumn.key]}» отсутствует в настройках «Грунтовка».`);
+                    }
+                }
+            });
+
+            if (!issues.length) {
+                alert('Общая проверка КД пройдена успешно. Ошибок не найдено.');
+                return;
+            }
+
+            const report = ['Общая проверка КД: найдены ошибки.', '', ...issues].join('\n');
+            alert(report);
         } finally {
             setGeneralCheckInProgress(false);
         }
-    }, [runNamingCheck, runVerification]);
+    }, [sortedRows, specificationSettings.columns, specificationSettings.coverage, specificationSettings.primer, tableColumns]);
 
     const namingTargetColumnKey = useMemo(() => {
         const nameColumn = tableColumns.find((column) => column.label.toLowerCase().includes('наимен'));

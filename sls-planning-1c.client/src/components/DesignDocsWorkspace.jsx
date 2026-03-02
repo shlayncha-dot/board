@@ -122,6 +122,23 @@ const getColumnKeyByLabel = (columns, predicate) => {
 
 const isAssemblyType = (typeValue) => normalizeValue(typeValue).toUpperCase().startsWith('СБ');
 
+const isNestedPosition = (parentPosition, candidatePosition) => {
+    const normalizedParent = normalizeValue(parentPosition);
+    const normalizedCandidate = normalizeValue(candidatePosition);
+
+    if (!normalizedParent || !normalizedCandidate || normalizedParent === normalizedCandidate) {
+        return false;
+    }
+
+    if (!normalizedCandidate.startsWith(normalizedParent)) {
+        return false;
+    }
+
+    const nextSymbol = normalizedCandidate.charAt(normalizedParent.length);
+
+    return ['.', '-', '/', '\\', ' '].includes(nextSymbol);
+};
+
 const getAssemblyChildRowIds = (rows, positionColumnKey, parentPosition) => {
     const normalizedParentPosition = normalizeValue(parentPosition);
 
@@ -129,10 +146,8 @@ const getAssemblyChildRowIds = (rows, positionColumnKey, parentPosition) => {
         return [];
     }
 
-    const childPrefix = `${normalizedParentPosition}.`;
-
     return rows
-        .filter((row) => normalizeValue(row[positionColumnKey]).startsWith(childPrefix))
+        .filter((row) => isNestedPosition(normalizedParentPosition, row[positionColumnKey]))
         .map((row) => row.id);
 };
 

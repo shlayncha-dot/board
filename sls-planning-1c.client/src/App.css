@@ -2418,6 +2418,7 @@
 .assembly-stages-left-pane {
     display: grid;
     grid-template-rows: auto auto auto;
+    align-content: start;
     gap: 6px;
     min-height: 0;
     min-width: 0;

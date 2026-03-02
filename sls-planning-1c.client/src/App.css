@@ -2358,6 +2358,7 @@
     flex-direction: column;
     gap: 8px;
     height: 100%;
+    overflow: auto;
     width: 100%;
     padding: 8px;
     box-sizing: border-box;
@@ -2416,7 +2417,7 @@
 
 .assembly-stages-left-pane {
     display: grid;
-    grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
     gap: 6px;
     min-height: 0;
     min-width: 0;
@@ -2484,8 +2485,8 @@
     overflow-y: auto;
     min-height: 0;
     min-width: 0;
-    height: calc(var(--assembly-stages-row-height) * 10);
-    max-height: calc(var(--assembly-stages-row-height) * 10);
+    height: calc(var(--assembly-stages-row-height) * 11);
+    max-height: calc(var(--assembly-stages-row-height) * 11);
     scrollbar-gutter: stable;
 }
 

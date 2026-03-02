@@ -9,11 +9,17 @@ const normalizeType = (value) => String(value ?? '')
 
 const normalizeAllowedType = (value) => normalizeType(value).replace(/-+/g, '_');
 
+const normalizeColumnLabel = (value) => String(value ?? '')
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    .replace(/\s+/g, '')
+    .replace(/[.,;:!?"'`()\-_/\\]+/g, '');
+
 const ALLOWED_TYPES_NORMALIZED = new Set(Array.from(ALLOWED_TYPES, normalizeAllowedType));
 
 export const extractRowsForNamingCheck = (rows, tableColumns) => {
-    const nameColumn = tableColumns.find((column) => column.label.toLowerCase().includes('наимен'));
-    const typeColumn = tableColumns.find((column) => column.label.toLowerCase().includes('тип'));
+    const nameColumn = tableColumns.find((column) => normalizeColumnLabel(column.label).includes('наимен'));
+    const typeColumn = tableColumns.find((column) => normalizeColumnLabel(column.label).includes('тип'));
 
     if (!nameColumn) {
         return {

@@ -2483,7 +2483,8 @@
     overflow-y: auto;
     min-height: 0;
     min-width: 0;
-    max-height: 100%;
+    height: calc(22px + (10 * 22px));
+    max-height: calc(22px + (10 * 22px));
     scrollbar-gutter: stable;
 }
 
@@ -2498,10 +2499,10 @@
 .assembly-stages-table td {
     border-right: 1px dashed #9a9a9a;
     border-bottom: 1px dashed #9a9a9a;
-    padding: 6px 8px;
+    padding: 4px 8px;
     text-align: left;
-    font-size: 13px;
-    line-height: 1.2;
+    font-size: 12px;
+    line-height: 1.15;
     white-space: nowrap;
     min-width: fit-content;
 }

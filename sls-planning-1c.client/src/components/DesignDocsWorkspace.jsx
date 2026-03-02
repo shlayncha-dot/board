@@ -120,7 +120,10 @@ const parseSettingsList = (rawValue) => String(rawValue ?? '')
     .map((item) => item.trim())
     .filter(Boolean);
 
-const normalizeLabelForMatch = (label) => normalizeValue(label).toLowerCase().replace(/[\s._-]+/g, '');
+const normalizeLabelForMatch = (label) => normalizeValue(label)
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    .replace(/[^\p{L}\p{N}]+/gu, '');
 
 const normalizeCellForCompare = (value) => normalizeValue(value).toLowerCase();
 
@@ -802,8 +805,8 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
             const coverageOptions = parseSettingsList(specificationSettings.coverage).map((item) => normalizeCellForCompare(item));
             const primerOptions = parseSettingsList(specificationSettings.primer).map((item) => normalizeCellForCompare(item));
 
-            const availableColumns = tableColumns.map((column) => normalizeCellForCompare(column.label));
-            const missingColumns = requiredColumns.filter((columnName) => !availableColumns.includes(normalizeCellForCompare(columnName)));
+            const availableColumns = tableColumns.map((column) => normalizeLabelForMatch(column.label));
+            const missingColumns = requiredColumns.filter((columnName) => !availableColumns.includes(normalizeLabelForMatch(columnName)));
 
             const qtyColumn = findColumnByAliases(tableColumns, ['Кол', 'Количество']);
             const typeColumn = findColumnByAliases(tableColumns, ['Тип']);

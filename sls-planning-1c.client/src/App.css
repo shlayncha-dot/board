@@ -1003,10 +1003,10 @@
 .kd-table thead th {
     position: sticky;
     top: 0;
-    background: #000;
+    background: #636363;
     color: #fff;
     z-index: 1;
-    border-bottom: 1px dashed #666;
+    border-bottom: 1px dashed #7f7f7f;
 }
 
 .kd-table th:last-child,

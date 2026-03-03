@@ -100,8 +100,10 @@ public sealed class NamingService : INamingService
         var attempts = new[]
         {
             new HttpTlsAttempt("SystemDefault", null),
+            new HttpTlsAttempt("SystemDefault-HTTP1.1", null, HttpVersion: HttpVersion.Version11),
             new HttpTlsAttempt("TLS1.3", SslProtocols.Tls13),
             new HttpTlsAttempt("TLS1.2", SslProtocols.Tls12),
+            new HttpTlsAttempt("TLS1.2-NoRevocation", SslProtocols.Tls12, CheckCertificateRevocationList: false),
             new HttpTlsAttempt("TLS1.2-Insecure", SslProtocols.Tls12, IgnoreSslErrors: allowInsecureFallback)
         };
 
@@ -111,14 +113,14 @@ public sealed class NamingService : INamingService
         {
             try
             {
-                using var request = BuildRequest(payloadJson);
+                using var request = BuildRequest(payloadJson, attempt.HttpVersion);
 
                 if (attempt.Protocol is null)
                 {
                     return await _httpClient.SendAsync(request, cancellationToken);
                 }
 
-                using var handler = CreateHttpHandler(attempt.Protocol, attempt.IgnoreSslErrors);
+                using var handler = CreateHttpHandler(attempt.Protocol, attempt.IgnoreSslErrors, attempt.CheckCertificateRevocationList);
                 using var client = new HttpClient(handler, disposeHandler: true);
                 return await client.SendAsync(request, cancellationToken);
             }
@@ -132,21 +134,52 @@ public sealed class NamingService : INamingService
             }
         }
 
-        throw new NamingServiceException($"Не удалось подключиться к сервису Нейминг: {lastError?.Message}", HttpStatusCode.BadGateway);
+        throw new NamingServiceException($"Не удалось подключиться к сервису Нейминг: {ExtractErrorMessage(lastError)}", HttpStatusCode.BadGateway);
     }
 
-    private HttpRequestMessage BuildRequest(string payloadJson)
+    private static string ExtractErrorMessage(Exception? error)
+    {
+        if (error is null)
+        {
+            return "неизвестная ошибка подключения.";
+        }
+
+        var messages = new List<string>();
+        var current = error;
+
+        while (current is not null)
+        {
+            if (!string.IsNullOrWhiteSpace(current.Message))
+            {
+                messages.Add(current.Message.Trim());
+            }
+
+            current = current.InnerException;
+        }
+
+        return messages.Count == 0
+            ? "неизвестная ошибка подключения."
+            : string.Join(" | ", messages.Distinct(StringComparer.Ordinal));
+    }
+
+    private HttpRequestMessage BuildRequest(string payloadJson, Version? httpVersion = null)
     {
         var request = new HttpRequestMessage(HttpMethod.Post, _options.CheckUrl)
         {
             Content = new StringContent(payloadJson, Encoding.UTF8, "application/json")
         };
 
+        if (httpVersion is not null)
+        {
+            request.Version = httpVersion;
+            request.VersionPolicy = HttpVersionPolicy.RequestVersionOrLower;
+        }
+
         AddBasicAuthorizationHeaderIfConfigured(request);
         return request;
     }
 
-    private HttpClientHandler CreateHttpHandler(SslProtocols? protocol, bool ignoreSslErrors = false)
+    private HttpClientHandler CreateHttpHandler(SslProtocols? protocol, bool ignoreSslErrors = false, bool checkCertificateRevocationList = true)
     {
         var handler = new HttpClientHandler();
 
@@ -154,6 +187,8 @@ public sealed class NamingService : INamingService
         {
             handler.SslProtocols = protocol.Value;
         }
+
+        handler.CheckCertificateRevocationList = checkCertificateRevocationList;
 
         if (_options.IgnoreSslErrors || ignoreSslErrors)
         {
@@ -243,7 +278,12 @@ public sealed class NamingService : INamingService
     }
 }
 
-public sealed record HttpTlsAttempt(string Name, SslProtocols? Protocol, bool IgnoreSslErrors = false);
+public sealed record HttpTlsAttempt(
+    string Name,
+    SslProtocols? Protocol,
+    bool IgnoreSslErrors = false,
+    bool CheckCertificateRevocationList = true,
+    Version? HttpVersion = null);
 
 public sealed class NamingServiceException : Exception
 {

@@ -1,5 +1,8 @@
 namespace SLS_Planning_1C.Server.Features.Naming;
 
+using System.Text.Json;
+using Microsoft.Extensions.Logging;
+
 public interface INamingCredentialsStore
 {
     void Save(string username, string password);
@@ -9,7 +12,20 @@ public interface INamingCredentialsStore
 public sealed class NamingRuntimeCredentialsStore : INamingCredentialsStore
 {
     private readonly object _sync = new();
+    private readonly string _storageFilePath;
+    private readonly ILogger<NamingRuntimeCredentialsStore> _logger;
     private NamingRuntimeCredentials? _credentials;
+
+    public NamingRuntimeCredentialsStore(IWebHostEnvironment environment, ILogger<NamingRuntimeCredentialsStore> logger)
+    {
+        _logger = logger;
+
+        var appDataDirectory = Path.Combine(environment.ContentRootPath, "App_Data");
+        Directory.CreateDirectory(appDataDirectory);
+        _storageFilePath = Path.Combine(appDataDirectory, "naming-credentials.json");
+
+        _credentials = LoadFromDisk();
+    }
 
     public void Save(string username, string password)
     {
@@ -23,6 +39,8 @@ public sealed class NamingRuntimeCredentialsStore : INamingCredentialsStore
         {
             _credentials = nextCredentials;
         }
+
+        PersistToDisk(nextCredentials);
     }
 
     public bool TryGet(out NamingRuntimeCredentials credentials)
@@ -37,6 +55,47 @@ public sealed class NamingRuntimeCredentialsStore : INamingCredentialsStore
 
             credentials = _credentials;
             return true;
+        }
+    }
+
+    private NamingRuntimeCredentials? LoadFromDisk()
+    {
+        try
+        {
+            if (!File.Exists(_storageFilePath))
+            {
+                return null;
+            }
+
+            var rawJson = File.ReadAllText(_storageFilePath);
+            var persisted = JsonSerializer.Deserialize<NamingRuntimeCredentials>(rawJson);
+
+            if (persisted is null
+                || string.IsNullOrWhiteSpace(persisted.Username)
+                || string.IsNullOrWhiteSpace(persisted.Password))
+            {
+                return null;
+            }
+
+            return persisted;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Не удалось загрузить сохранённые credentials для Нейминг.");
+            return null;
+        }
+    }
+
+    private void PersistToDisk(NamingRuntimeCredentials credentials)
+    {
+        try
+        {
+            var json = JsonSerializer.Serialize(credentials);
+            File.WriteAllText(_storageFilePath, json);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Не удалось сохранить credentials для Нейминг.");
         }
     }
 }

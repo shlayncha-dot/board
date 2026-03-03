@@ -30,6 +30,10 @@ public sealed class NamingApiOptions
     public string Username { get; init; } = string.Empty;
     public string Password { get; init; } = string.Empty;
     public bool IgnoreSslErrors { get; init; }
+    public string UserAgent { get; init; } = "curl/8.4.0";
+    public bool DisableExpectContinue { get; init; } = true;
+    public bool DisableChunkedEncoding { get; init; } = true;
+    public bool ForceConnectionClose { get; init; } = true;
 }
 
 

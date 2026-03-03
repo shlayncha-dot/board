@@ -1,10 +1,6 @@
 using System.Net;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
-using CurlThin;
-using CurlThin.Enums;
-using CurlThin.SafeHandles;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -17,8 +13,7 @@ public interface INamingService
 
 public sealed class NamingService : INamingService
 {
-    private static readonly object CurlInitLock = new();
-    private static bool _curlInitialized;
+    private static readonly HttpClient HttpClient = new();
 
     private readonly NamingApiOptions _options;
     private readonly INamingCredentialsStore _credentialsStore;
@@ -32,17 +27,15 @@ public sealed class NamingService : INamingService
         _options = options.Value;
         _credentialsStore = credentialsStore;
         _logger = logger;
-
-        EnsureCurlInitialized();
     }
 
-    public Task<NamingCheckResponse> CheckAsync(NamingCheckRequest request, CancellationToken cancellationToken)
+    public async Task<NamingCheckResponse> CheckAsync(NamingCheckRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         if (request.Items is null || request.Items.Count == 0)
         {
-            return Task.FromResult(new NamingCheckResponse { Results = [] });
+            return new NamingCheckResponse { Results = [] };
         }
 
         if (string.IsNullOrWhiteSpace(_options.CheckUrl))
@@ -53,7 +46,7 @@ public sealed class NamingService : INamingService
         var payload = request.Items.Select(item => new { name = item.Name }).ToList();
         var payloadJson = JsonSerializer.Serialize(payload);
 
-        var responseBody = ExecuteCurlRequest(payloadJson, cancellationToken, out var statusCode);
+        var (responseBody, statusCode) = await ExecuteHttpRequestAsync(payloadJson, cancellationToken);
 
         if (statusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
         {
@@ -96,167 +89,42 @@ public sealed class NamingService : INamingService
                 })
                 .ToList();
 
-            return Task.FromResult(new NamingCheckResponse { Results = results });
+            return new NamingCheckResponse { Results = results };
         }
     }
 
-    private string ExecuteCurlRequest(string payloadJson, CancellationToken cancellationToken, out HttpStatusCode statusCode)
+    private async Task<(string ResponseBody, HttpStatusCode StatusCode)> ExecuteHttpRequestAsync(
+        string payloadJson,
+        CancellationToken cancellationToken)
     {
-        using var easy = CurlNative.Easy.Init();
-        if (easy.IsInvalid)
+        using var request = new HttpRequestMessage(HttpMethod.Post, _options.CheckUrl)
         {
-            throw new NamingServiceException("Не удалось инициализировать Curl.", HttpStatusCode.BadGateway);
-        }
+            Content = new StringContent(payloadJson, Encoding.UTF8, "application/json")
+        };
 
-        using var headers = BuildHeaders();
+        request.Headers.UserAgent.ParseAdd("curl/7.81.0");
+
         var credentials = ResolveCredentials();
-        var responseBuffer = new List<byte>();
-        var callbackState = GCHandle.Alloc(responseBuffer);
+        if (credentials is not null)
+        {
+            var credentialBytes = Encoding.UTF8.GetBytes($"{credentials.Value.Username}:{credentials.Value.Password}");
+            var encodedCredentials = Convert.ToBase64String(credentialBytes);
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", encodedCredentials);
+        }
 
         try
         {
-            SetOptOrThrow(easy, CURLoption.URL, _options.CheckUrl);
-            SetOptOrThrow(easy, CURLoption.POST, 1L);
-            SetOptOrThrow(easy, CURLoption.POSTFIELDS, payloadJson);
-            SetOptOrThrow(easy, CURLoption.POSTFIELDSIZE, Encoding.UTF8.GetByteCount(payloadJson));
-            SetOptOrThrow(easy, CURLoption.HTTPHEADER, headers);
-            SetOptOrThrow(easy, CURLoption.USERAGENT, "curl/7.81.0");
-            SetOptOrThrow(easy, CURLoption.CONNECTTIMEOUT, 30L);
-            SetOptOrThrow(easy, CURLoption.TIMEOUT, 30L);
-            SetOptOrThrow(easy, CURLoption.SSL_VERIFYPEER, 0L);
-            SetOptOrThrow(easy, CURLoption.SSL_VERIFYHOST, 0L);
-
-            if (credentials is not null)
-            {
-                SetOptOrThrow(easy, CURLoption.HTTPAUTH, (long)CURLAUTH.CURLAUTH_BASIC);
-                SetOptOrThrow(easy, CURLoption.USERPWD, $"{credentials.Value.Username}:{credentials.Value.Password}");
-            }
-
-            SetOptOrThrow(
-                CurlNative.Easy.SetOpt(easy, CURLoption.WRITEFUNCTION, WriteResponseBodyCallback),
-                CURLoption.WRITEFUNCTION);
-            SetOptOrThrow(easy, CURLoption.WRITEDATA, GCHandle.ToIntPtr(callbackState));
-
-            if (cancellationToken.CanBeCanceled)
-            {
-                SetOptOrThrow(easy, CURLoption.NOPROGRESS, 0L);
-                SetOptOrThrow(
-                    CurlNative.Easy.SetOpt(
-                        easy,
-                        CURLoption.XFERINFOFUNCTION,
-                        (_, _, _, _, _) => cancellationToken.IsCancellationRequested ? 1 : 0),
-                    CURLoption.XFERINFOFUNCTION);
-            }
-
-            var performResult = CurlNative.Easy.Perform(easy);
-            if (performResult != CURLcode.CURLE_OK)
-            {
-                throw new NamingServiceException(
-                    $"Ошибка вызова внешнего API через Curl: {performResult}.",
-                    HttpStatusCode.BadGateway);
-            }
-
-            CurlNative.Easy.GetInfo(easy, CURLINFO.RESPONSE_CODE, out var httpStatusCodeLong);
-            statusCode = (HttpStatusCode)httpStatusCodeLong;
-            return Encoding.UTF8.GetString(responseBuffer.ToArray());
+            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+            using var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, linkedCts.Token);
+            var responseBody = await response.Content.ReadAsStringAsync(linkedCts.Token);
+            return (responseBody, response.StatusCode);
         }
         catch (OperationCanceledException)
         {
             _logger.LogInformation("Проверка нейминга была отменена через CancellationToken.");
             throw;
         }
-        finally
-        {
-            callbackState.Free();
-        }
-    }
-
-    private static void EnsureCurlInitialized()
-    {
-        lock (CurlInitLock)
-        {
-            if (_curlInitialized)
-            {
-                return;
-            }
-
-            try
-            {
-                CurlNative.Init();
-                _curlInitialized = true;
-            }
-            catch (DllNotFoundException ex)
-            {
-                throw BuildNativeLibraryException(
-                    "Не найдены нативные библиотеки Curl/OpenSSL.",
-                    ex);
-            }
-            catch (BadImageFormatException ex)
-            {
-                throw BuildNativeLibraryException(
-                    "Обнаружена несовместимая архитектура нативных библиотек Curl/OpenSSL (x86/x64).",
-                    ex);
-            }
-        }
-    }
-
-    private static NamingServiceException BuildNativeLibraryException(string details, Exception innerException)
-    {
-        const string message =
-            "Не удалось инициализировать CurlThin. " +
-            "Проверьте, что рядом с приложением лежат runtime DLL: libcurl*.dll, libssl*.dll, libcrypto*.dll и зависимости. " +
-            "Файлы *.a не подходят для запуска .NET-приложения. " +
-            "Рекомендуемая папка проекта: SLS-Planning-1C.Server/native/win-x64/.";
-
-        return new NamingServiceException($"{message} {details}", HttpStatusCode.BadGateway, innerException);
-    }
-
-    private static void SetOptOrThrow(SafeEasyHandle easy, CURLoption option, string value)
-    {
-        SetOptOrThrow(CurlNative.Easy.SetOpt(easy, option, value), option);
-    }
-
-    private static void SetOptOrThrow(SafeEasyHandle easy, CURLoption option, long value)
-    {
-        SetOptOrThrow(CurlNative.Easy.SetOpt(easy, option, value), option);
-    }
-
-    private static void SetOptOrThrow(SafeEasyHandle easy, CURLoption option, SafeSlistHandle value)
-    {
-        SetOptOrThrow(CurlNative.Easy.SetOpt(easy, option, value), option);
-    }
-
-    private static void SetOptOrThrow(CURLcode code, CURLoption option)
-    {
-        if (code != CURLcode.CURLE_OK)
-        {
-            throw new NamingServiceException($"Ошибка настройки Curl опции {option}: {code}.", HttpStatusCode.BadGateway);
-        }
-    }
-
-    private static SafeSlistHandle BuildHeaders()
-    {
-        var headers = CurlNative.Slist.Append(SafeSlistHandle.Null, "Content-Type: application/json");
-        headers = CurlNative.Slist.Append(headers, "User-Agent: curl/7.81.0");
-        return headers;
-    }
-
-    private static nuint WriteResponseBodyCallback(IntPtr buffer, nuint size, nuint nItems, IntPtr userData)
-    {
-        var total = checked((int)(size * nItems));
-        if (total <= 0)
-        {
-            return 0;
-        }
-
-        var state = GCHandle.FromIntPtr(userData);
-        var target = (List<byte>)state.Target!;
-
-        var chunk = new byte[total];
-        Marshal.Copy(buffer, chunk, 0, total);
-        target.AddRange(chunk);
-
-        return (nuint)total;
     }
 
     private (string Username, string Password)? ResolveCredentials()

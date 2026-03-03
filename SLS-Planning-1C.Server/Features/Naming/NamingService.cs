@@ -13,8 +13,6 @@ public interface INamingService
 
 public sealed class NamingService : INamingService
 {
-    private static readonly HttpClient HttpClient = new();
-
     private readonly NamingApiOptions _options;
     private readonly INamingCredentialsStore _credentialsStore;
     private readonly ILogger<NamingService> _logger;
@@ -97,6 +95,20 @@ public sealed class NamingService : INamingService
         string payloadJson,
         CancellationToken cancellationToken)
     {
+        // ВАЖНО: если надо игнорировать SSL — создаём HttpClient с handler
+        using var handler = new HttpClientHandler();
+
+        if (_options.IgnoreSslErrors)
+        {
+            handler.ServerCertificateCustomValidationCallback =
+                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+        }
+
+        using var httpClient = new HttpClient(handler)
+        {
+            Timeout = TimeSpan.FromSeconds(30)
+        };
+
         using var request = new HttpRequestMessage(HttpMethod.Post, _options.CheckUrl)
         {
             Content = new StringContent(payloadJson, Encoding.UTF8, "application/json")
@@ -107,23 +119,26 @@ public sealed class NamingService : INamingService
         var credentials = ResolveCredentials();
         if (credentials is not null)
         {
-            var credentialBytes = Encoding.UTF8.GetBytes($"{credentials.Value.Username}:{credentials.Value.Password}");
-            var encodedCredentials = Convert.ToBase64String(credentialBytes);
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", encodedCredentials);
+            var raw = $"{credentials.Value.Username}:{credentials.Value.Password}";
+            var encoded = Convert.ToBase64String(Encoding.ASCII.GetBytes(raw)); // ASCII для Basic
+            request.Headers.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", encoded);
         }
 
         try
         {
-            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
-            using var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, linkedCts.Token);
-            var responseBody = await response.Content.ReadAsStringAsync(linkedCts.Token);
+            using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken);
+            var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            // ЛОГИРУЕМ реальный ответ 1С (иначе ты всегда будешь видеть только "502")
+            _logger.LogInformation("Naming API status={StatusCode} body={Body}", (int)response.StatusCode, responseBody);
+
             return (responseBody, response.StatusCode);
         }
-        catch (OperationCanceledException)
+        catch (HttpRequestException ex)
         {
-            _logger.LogInformation("Проверка нейминга была отменена через CancellationToken.");
-            throw;
+            _logger.LogError(ex, "Naming API request failed. Url={Url}", _options.CheckUrl);
+            throw new NamingServiceException("Ошибка HTTP при обращении к сервису нейминга: " + ex.Message, HttpStatusCode.BadGateway, ex);
         }
     }
 

@@ -1,0 +1,16 @@
+{
+  "name": "naming-proxy-service",
+  "version": "1.0.0",
+  "description": "Proxy service for forwarding naming verification requests to 1C HS",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "undici": "^7.16.0"
+  }
+}

@@ -13,9 +13,25 @@ public interface INamingService
 
 public sealed class NamingService : INamingService
 {
+    private static readonly HttpClient HttpClient = CreateHttpClient();
+
     private readonly NamingApiOptions _options;
     private readonly INamingCredentialsStore _credentialsStore;
     private readonly ILogger<NamingService> _logger;
+
+    private static HttpClient CreateHttpClient()
+    {
+        var handler = new HttpClientHandler
+        {
+            ServerCertificateCustomValidationCallback =
+                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+        };
+
+        return new HttpClient(handler)
+        {
+            Timeout = TimeSpan.FromSeconds(30)
+        };
+    }
 
     public NamingService(
         IOptions<NamingApiOptions> options,
@@ -95,20 +111,6 @@ public sealed class NamingService : INamingService
         string payloadJson,
         CancellationToken cancellationToken)
     {
-        // ВАЖНО: если надо игнорировать SSL — создаём HttpClient с handler
-        using var handler = new HttpClientHandler();
-
-        if (_options.IgnoreSslErrors)
-        {
-            handler.ServerCertificateCustomValidationCallback =
-                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
-        }
-
-        using var httpClient = new HttpClient(handler)
-        {
-            Timeout = TimeSpan.FromSeconds(30)
-        };
-
         using var request = new HttpRequestMessage(HttpMethod.Post, _options.CheckUrl)
         {
             Content = new StringContent(payloadJson, Encoding.UTF8, "application/json")
@@ -127,7 +129,7 @@ public sealed class NamingService : INamingService
 
         try
         {
-            using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken);
+            using var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken);
             var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
 
             // ЛОГИРУЕМ реальный ответ 1С (иначе ты всегда будешь видеть только "502")

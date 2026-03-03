@@ -132,13 +132,20 @@ public sealed class NamingService : INamingService
                 SetOptOrThrow(easy, CURLoption.USERPWD, $"{credentials.Value.Username}:{credentials.Value.Password}");
             }
 
-            SetOptOrThrow(easy, CURLoption.WRITEFUNCTION, WriteResponseBodyCallback);
+            SetOptOrThrow(
+                CurlNative.Easy.SetOpt(easy, CURLoption.WRITEFUNCTION, WriteResponseBodyCallback),
+                CURLoption.WRITEFUNCTION);
             SetOptOrThrow(easy, CURLoption.WRITEDATA, GCHandle.ToIntPtr(callbackState));
 
             if (cancellationToken.CanBeCanceled)
             {
                 SetOptOrThrow(easy, CURLoption.NOPROGRESS, 0L);
-                SetOptOrThrow(easy, CURLoption.XFERINFOFUNCTION, BuildProgressCallback(cancellationToken));
+                SetOptOrThrow(
+                    CurlNative.Easy.SetOpt(
+                        easy,
+                        CURLoption.XFERINFOFUNCTION,
+                        (_, _, _, _, _) => cancellationToken.IsCancellationRequested ? 1 : 0),
+                    CURLoption.XFERINFOFUNCTION);
             }
 
             var performResult = CurlNative.Easy.Perform(easy);
@@ -206,43 +213,21 @@ public sealed class NamingService : INamingService
 
     private static void SetOptOrThrow(SafeEasyHandle easy, CURLoption option, string value)
     {
-        var code = CurlNative.Easy.SetOpt(easy, option, value);
-        if (code != CURLcode.CURLE_OK)
-        {
-            throw new NamingServiceException($"Ошибка настройки Curl опции {option}: {code}.", HttpStatusCode.BadGateway);
-        }
+        SetOptOrThrow(CurlNative.Easy.SetOpt(easy, option, value), option);
     }
 
     private static void SetOptOrThrow(SafeEasyHandle easy, CURLoption option, long value)
     {
-        var code = CurlNative.Easy.SetOpt(easy, option, value);
-        if (code != CURLcode.CURLE_OK)
-        {
-            throw new NamingServiceException($"Ошибка настройки Curl опции {option}: {code}.", HttpStatusCode.BadGateway);
-        }
+        SetOptOrThrow(CurlNative.Easy.SetOpt(easy, option, value), option);
     }
 
     private static void SetOptOrThrow(SafeEasyHandle easy, CURLoption option, SafeSlistHandle value)
     {
-        var code = CurlNative.Easy.SetOpt(easy, option, value);
-        if (code != CURLcode.CURLE_OK)
-        {
-            throw new NamingServiceException($"Ошибка настройки Curl опции {option}: {code}.", HttpStatusCode.BadGateway);
-        }
+        SetOptOrThrow(CurlNative.Easy.SetOpt(easy, option, value), option);
     }
 
-    private static void SetOptOrThrow(SafeEasyHandle easy, CURLoption option, CurlNative.Callbacks.WriteCallback value)
+    private static void SetOptOrThrow(CURLcode code, CURLoption option)
     {
-        var code = CurlNative.Easy.SetOpt(easy, option, value);
-        if (code != CURLcode.CURLE_OK)
-        {
-            throw new NamingServiceException($"Ошибка настройки Curl опции {option}: {code}.", HttpStatusCode.BadGateway);
-        }
-    }
-
-    private static void SetOptOrThrow(SafeEasyHandle easy, CURLoption option, CurlNative.Callbacks.XferInfoCallback value)
-    {
-        var code = CurlNative.Easy.SetOpt(easy, option, value);
         if (code != CURLcode.CURLE_OK)
         {
             throw new NamingServiceException($"Ошибка настройки Curl опции {option}: {code}.", HttpStatusCode.BadGateway);
@@ -272,11 +257,6 @@ public sealed class NamingService : INamingService
         target.AddRange(chunk);
 
         return (nuint)total;
-    }
-
-    private static CurlNative.Callbacks.XferInfoCallback BuildProgressCallback(CancellationToken cancellationToken)
-    {
-        return (_, _, _, _, _) => cancellationToken.IsCancellationRequested ? 1 : 0;
     }
 
     private (string Username, string Password)? ResolveCredentials()

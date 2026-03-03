@@ -98,11 +98,10 @@ public sealed class NamingService : INamingService
     {
         var handler = new HttpClientHandler
         {
-            UseProxy = false,
-            Proxy = null,
+            UseProxy = true,
             ServerCertificateCustomValidationCallback =
                 HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
-            SslProtocols = SslProtocols.Tls12
+            SslProtocols = SslProtocols.None
         };
 
         using var httpClient = new HttpClient(handler)

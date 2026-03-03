@@ -98,11 +98,10 @@ public sealed class NamingService : INamingService
     {
         var handler = new HttpClientHandler
         {
-            // "как Postman (SSL verification OFF)"
+            UseProxy = false,
+            Proxy = null,
             ServerCertificateCustomValidationCallback =
                 HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
-
-            // Часто нужно на Windows 10/политиках: принудительно TLS 1.2
             SslProtocols = SslProtocols.Tls12
         };
 
@@ -114,8 +113,6 @@ public sealed class NamingService : INamingService
         using var request = new HttpRequestMessage(HttpMethod.Post, _options.CheckUrl)
         {
             Content = new StringContent(payloadJson, Encoding.UTF8, "application/json"),
-
-            // не лезем в HTTP/2
             Version = HttpVersion.Version11,
             VersionPolicy = HttpVersionPolicy.RequestVersionOrLower
         };

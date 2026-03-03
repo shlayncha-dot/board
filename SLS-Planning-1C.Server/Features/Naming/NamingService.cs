@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Authentication;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace SLS_Planning_1C.Server.Features.Naming;
@@ -17,12 +18,18 @@ public sealed class NamingService : INamingService
     private readonly HttpClient _httpClient;
     private readonly NamingApiOptions _options;
     private readonly INamingCredentialsStore _credentialsStore;
+    private readonly ILogger<NamingService> _logger;
 
-    public NamingService(HttpClient httpClient, IOptions<NamingApiOptions> options, INamingCredentialsStore credentialsStore)
+    public NamingService(
+        HttpClient httpClient,
+        IOptions<NamingApiOptions> options,
+        INamingCredentialsStore credentialsStore,
+        ILogger<NamingService> logger)
     {
         _httpClient = httpClient;
         _options = options.Value;
         _credentialsStore = credentialsStore;
+        _logger = logger;
     }
 
     public async Task<NamingCheckResponse> CheckAsync(NamingCheckRequest request, CancellationToken cancellationToken)
@@ -113,24 +120,42 @@ public sealed class NamingService : INamingService
         {
             try
             {
+                _logger.LogInformation(
+                    "Проверка нейминга: старт попытки {AttemptName} (Protocol: {Protocol}, HttpVersion: {HttpVersion}).",
+                    attempt.Name,
+                    attempt.Protocol?.ToString() ?? "SystemDefault",
+                    attempt.HttpVersion?.ToString() ?? "Default");
+
                 using var request = BuildRequest(payloadJson, attempt.HttpVersion);
 
                 if (attempt.Protocol is null)
                 {
-                    return await _httpClient.SendAsync(request, cancellationToken);
+                    var response = await _httpClient.SendAsync(request, cancellationToken);
+                    _logger.LogInformation("Проверка нейминга: попытка {AttemptName} завершилась HTTP {StatusCode}.", attempt.Name, (int)response.StatusCode);
+                    return response;
                 }
 
                 using var handler = CreateHttpHandler(attempt.Protocol, attempt.IgnoreSslErrors, attempt.CheckCertificateRevocationList);
                 using var client = new HttpClient(handler, disposeHandler: true);
-                return await client.SendAsync(request, cancellationToken);
+                var tlsResponse = await client.SendAsync(request, cancellationToken);
+                _logger.LogInformation("Проверка нейминга: попытка {AttemptName} завершилась HTTP {StatusCode}.", attempt.Name, (int)tlsResponse.StatusCode);
+                return tlsResponse;
             }
             catch (HttpRequestException ex)
             {
                 lastError = ex;
+                _logger.LogWarning(ex, "Проверка нейминга: попытка {AttemptName} провалена (Protocol: {Protocol}, HttpVersion: {HttpVersion}).",
+                    attempt.Name,
+                    attempt.Protocol?.ToString() ?? "SystemDefault",
+                    attempt.HttpVersion?.ToString() ?? "Default");
             }
             catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
                 lastError = new TimeoutException($"Таймаут при попытке {attempt.Name}.");
+                _logger.LogWarning("Проверка нейминга: попытка {AttemptName} завершилась таймаутом (Protocol: {Protocol}, HttpVersion: {HttpVersion}).",
+                    attempt.Name,
+                    attempt.Protocol?.ToString() ?? "SystemDefault",
+                    attempt.HttpVersion?.ToString() ?? "Default");
             }
         }
 

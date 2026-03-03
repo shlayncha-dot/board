@@ -40,6 +40,7 @@ builder.Services.AddHttpClient<INamingService, NamingService>()
             ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
         };
     });
+builder.Services.AddHttpClient<ISpecificationTestService, SpecificationTestService>();
 builder.Services.AddSingleton<INamingCredentialsStore, NamingRuntimeCredentialsStore>();
 builder.Services.Configure<NamingApiOptions>(builder.Configuration.GetSection("ExternalApis:Naming"));
 builder.Services.AddSingleton<IUserStore, UserStore>();

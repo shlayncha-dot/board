@@ -224,6 +224,8 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
     const [savedVerificationParams, setSavedVerificationParams] = useState(createVerificationParams);
     const [specificationSettings, setSpecificationSettings] = useState(createSpecificationSettings);
     const [savedSpecificationSettings, setSavedSpecificationSettings] = useState(createSpecificationSettings);
+    const [isSpecificationApiTestRunning, setIsSpecificationApiTestRunning] = useState(false);
+    const [specificationApiTestResult, setSpecificationApiTestResult] = useState('');
 
     const [tableColumns, setTableColumns] = useState(defaultTableColumns);
     const [tableRows, setTableRows] = useState(sampleSpecs);
@@ -1046,6 +1048,33 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
         setSpecificationSettings({ ...savedSpecificationSettings });
     };
 
+    const handleRunSpecificationApiTest = useCallback(async () => {
+        setIsSpecificationApiTestRunning(true);
+
+        try {
+            const response = await fetch(verificationApi.specificationTest, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({})
+            });
+
+            const data = await response.json().catch(() => ({}));
+            const message = typeof data?.message === 'string' ? data.message : '';
+
+            if (!response.ok) {
+                throw new Error(message || `Тест API завершился с HTTP ${response.status}.`);
+            }
+
+            setSpecificationApiTestResult(message || 'Тестовый запрос выполнен успешно.');
+        } catch (error) {
+            setSpecificationApiTestResult(error instanceof Error ? error.message : 'Ошибка тестового запроса API.');
+        } finally {
+            setIsSpecificationApiTestRunning(false);
+        }
+    }, []);
+
     return (
         <>
             <div className={`design-docs-subview ${activeSubItem === 0 ? 'active' : ''}`}>
@@ -1130,6 +1159,10 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
                     onSpecificationSettingChange={handleSpecificationSettingChange}
                     onSave={handleSaveSettings}
                     onCancel={handleCancelSettings}
+                    onRunSpecificationApiTest={handleRunSpecificationApiTest}
+                    isSpecificationApiTestRunning={isSpecificationApiTestRunning}
+                    specificationApiTestResult={specificationApiTestResult}
+                    onCloseSpecificationApiTestResult={() => setSpecificationApiTestResult('')}
                 />
             </div>
         </>

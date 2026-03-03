@@ -200,13 +200,39 @@ public sealed class NamingService : INamingService
 
     private HttpRequestMessage BuildRequest(string payloadJson, Version? httpVersion = null)
     {
+        var content = new StringContent(payloadJson, Encoding.UTF8, "application/json");
+
         var request = new HttpRequestMessage(HttpMethod.Post, _options.CheckUrl)
         {
-            Content = new StringContent(payloadJson, Encoding.UTF8, "application/json")
+            Content = content
         };
 
         request.Version = httpVersion ?? HttpVersion.Version11;
-        request.VersionPolicy = HttpVersionPolicy.RequestVersionExact;
+        request.VersionPolicy = HttpVersionPolicy.RequestVersionOrLower;
+
+        request.Headers.Accept.Clear();
+        request.Headers.Accept.ParseAdd("application/json");
+
+        if (!string.IsNullOrWhiteSpace(_options.UserAgent))
+        {
+            request.Headers.UserAgent.ParseAdd(_options.UserAgent);
+        }
+
+        if (_options.DisableExpectContinue)
+        {
+            request.Headers.ExpectContinue = false;
+        }
+
+        if (_options.ForceConnectionClose)
+        {
+            request.Headers.ConnectionClose = true;
+        }
+
+        if (_options.DisableChunkedEncoding)
+        {
+            request.Headers.TransferEncodingChunked = false;
+            request.Content.Headers.ContentLength = Encoding.UTF8.GetByteCount(payloadJson);
+        }
 
         AddBasicAuthorizationHeaderIfConfigured(request);
         return request;

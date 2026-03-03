@@ -1,4 +1,5 @@
 using System.Net;
+using System.Security.Authentication;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
@@ -97,8 +98,12 @@ public sealed class NamingService : INamingService
     {
         var handler = new HttpClientHandler
         {
+            // "как Postman (SSL verification OFF)"
             ServerCertificateCustomValidationCallback =
-                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
+
+            // Часто нужно на Windows 10/политиках: принудительно TLS 1.2
+            SslProtocols = SslProtocols.Tls12
         };
 
         using var httpClient = new HttpClient(handler)
@@ -108,10 +113,14 @@ public sealed class NamingService : INamingService
 
         using var request = new HttpRequestMessage(HttpMethod.Post, _options.CheckUrl)
         {
-            Content = new StringContent(payloadJson, Encoding.UTF8, "application/json")
+            Content = new StringContent(payloadJson, Encoding.UTF8, "application/json"),
+
+            // не лезем в HTTP/2
+            Version = HttpVersion.Version11,
+            VersionPolicy = HttpVersionPolicy.RequestVersionOrLower
         };
 
-        request.Headers.UserAgent.ParseAdd("curl/7.81.0");
+        request.Headers.UserAgent.ParseAdd("PostmanRuntime/7.0");
 
         var credentials = ResolveCredentials();
         if (credentials is not null)
@@ -124,15 +133,23 @@ public sealed class NamingService : INamingService
 
         try
         {
-            using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken);
             var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+
             _logger.LogInformation("Naming API => {Status} {Body}", (int)response.StatusCode, responseBody);
             return (responseBody, response.StatusCode);
         }
         catch (HttpRequestException ex)
         {
-            _logger.LogError(ex, "Naming API HTTP error");
-            throw new NamingServiceException("Ошибка HTTP при обращении к сервису нейминга: " + ex.Message, HttpStatusCode.BadGateway, ex);
+            _logger.LogError(ex,
+                "Naming API HTTP/SSL error. Message={Msg}; Inner={Inner}",
+                ex.Message,
+                ex.InnerException?.Message);
+
+            throw new NamingServiceException(
+                "Ошибка HTTP при обращении к сервису нейминга: " + ex.Message,
+                HttpStatusCode.BadGateway,
+                ex);
         }
     }
 

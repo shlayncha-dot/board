@@ -104,15 +104,25 @@ public sealed class NamingService : INamingService
     private async Task<HttpResponseMessage> SendWithTlsFallbackAsync(string payloadJson, CancellationToken cancellationToken)
     {
         var allowInsecureFallback = _options.IgnoreSslErrors || IsLocalServerEnvironment();
-        var attempts = new[]
+        var attempts = new List<HttpTlsAttempt>
         {
-            new HttpTlsAttempt("SystemDefault", null),
-            new HttpTlsAttempt("SystemDefault-HTTP1.1", null, HttpVersion: HttpVersion.Version11),
-            new HttpTlsAttempt("TLS1.3", SslProtocols.Tls13),
-            new HttpTlsAttempt("TLS1.2", SslProtocols.Tls12),
-            new HttpTlsAttempt("TLS1.2-NoRevocation", SslProtocols.Tls12, CheckCertificateRevocationList: false),
-            new HttpTlsAttempt("TLS1.2-Insecure", SslProtocols.Tls12, IgnoreSslErrors: allowInsecureFallback)
+            new("SystemDefault", null),
+            new("SystemDefault-HTTP1.1", null, HttpVersion: HttpVersion.Version11),
+            new("TLS1.3", SslProtocols.Tls13),
+            new("TLS1.2", SslProtocols.Tls12),
+            new("TLS1.2-NoRevocation", SslProtocols.Tls12, CheckCertificateRevocationList: false)
         };
+
+#pragma warning disable SYSLIB0039
+        attempts.Add(new("TLS1.1", SslProtocols.Tls11));
+        attempts.Add(new("TLS1.0", SslProtocols.Tls));
+#pragma warning restore SYSLIB0039
+
+        if (allowInsecureFallback)
+        {
+            attempts.Add(new("SystemDefault-Insecure", null, IgnoreSslErrors: true));
+            attempts.Add(new("TLS1.2-Insecure", SslProtocols.Tls12, IgnoreSslErrors: true));
+        }
 
         Exception? lastError = null;
 
@@ -126,9 +136,10 @@ public sealed class NamingService : INamingService
                     attempt.Protocol?.ToString() ?? "SystemDefault",
                     attempt.HttpVersion?.ToString() ?? "Default");
 
+                // HttpRequestMessage одноразовый: создаём новый экземпляр на каждую TLS/HTTP попытку.
                 using var request = BuildRequest(payloadJson, attempt.HttpVersion);
 
-                if (attempt.Protocol is null)
+                if (attempt.Protocol is null && !attempt.IgnoreSslErrors)
                 {
                     var response = await _httpClient.SendAsync(request, cancellationToken);
                     _logger.LogInformation("Проверка нейминга: попытка {AttemptName} завершилась HTTP {StatusCode}.", attempt.Name, (int)response.StatusCode);

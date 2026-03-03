@@ -136,9 +136,6 @@ public sealed class NamingService : INamingService
                     attempt.Protocol?.ToString() ?? "SystemDefault",
                     attempt.HttpVersion?.ToString() ?? "Default");
 
-                // HttpRequestMessage одноразовый: создаём новый экземпляр на каждую TLS/HTTP попытку.
-                using var request = BuildRequest(payloadJson, attempt.HttpVersion);
-
                 if (attempt.Protocol is null && !attempt.IgnoreSslErrors)
                 {
                     // HttpRequestMessage одноразовый: создаём новый экземпляр на каждую TLS/HTTP попытку.

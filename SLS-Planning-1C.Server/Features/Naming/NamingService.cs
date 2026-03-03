@@ -108,8 +108,11 @@ public sealed class NamingService : INamingService
         {
             new("SystemDefault", null),
             new("SystemDefault-HTTP1.1", null, HttpVersion: HttpVersion.Version11),
+            new("SystemDefault-NoProxy", null, UseProxy: false),
+            new("SystemDefault-HTTP1.1-NoProxy", null, HttpVersion: HttpVersion.Version11, UseProxy: false),
             new("TLS1.3", SslProtocols.Tls13),
             new("TLS1.2", SslProtocols.Tls12),
+            new("TLS1.2-NoProxy", SslProtocols.Tls12, UseProxy: false),
             new("TLS1.2-NoRevocation", SslProtocols.Tls12, CheckCertificateRevocationList: false)
         };
 
@@ -122,55 +125,108 @@ public sealed class NamingService : INamingService
         {
             attempts.Add(new("SystemDefault-Insecure", null, IgnoreSslErrors: true));
             attempts.Add(new("TLS1.2-Insecure", SslProtocols.Tls12, IgnoreSslErrors: true));
+            attempts.Add(new("TLS1.2-Insecure-NoProxy", SslProtocols.Tls12, IgnoreSslErrors: true, UseProxy: false));
         }
 
         Exception? lastError = null;
+
+        _logger.LogInformation(
+            "Проверка нейминга: конфигурация вызова CheckUrl={CheckUrl}, Runtime={Runtime}, ProxyEnv={ProxyEnv}, IgnoreSslErrors={IgnoreSslErrors}.",
+            _options.CheckUrl,
+            System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,
+            Environment.GetEnvironmentVariable("HTTPS_PROXY") ?? Environment.GetEnvironmentVariable("HTTP_PROXY") ?? "<empty>",
+            _options.IgnoreSslErrors);
 
         foreach (var attempt in attempts)
         {
             try
             {
                 _logger.LogInformation(
-                    "Проверка нейминга: старт попытки {AttemptName} (Protocol: {Protocol}, HttpVersion: {HttpVersion}).",
+                    "Проверка нейминга: старт попытки {AttemptName} (Protocol: {Protocol}, HttpVersion: {HttpVersion}, UseProxy: {UseProxy}, CheckCRL: {CheckCRL}, Insecure: {Insecure}).",
                     attempt.Name,
                     attempt.Protocol?.ToString() ?? "SystemDefault",
-                    attempt.HttpVersion?.ToString() ?? "Default");
+                    attempt.HttpVersion?.ToString() ?? "Default",
+                    attempt.UseProxy,
+                    attempt.CheckCertificateRevocationList,
+                    attempt.IgnoreSslErrors);
 
-                if (attempt.Protocol is null && !attempt.IgnoreSslErrors)
+                // Базовый HttpClient можно использовать только для "чистой" system-default попытки.
+                // Иначе (NoProxy/CRL override/Insecure) нужен отдельный handler.
+                var canUseSharedClient = attempt.Protocol is null
+                    && !attempt.IgnoreSslErrors
+                    && attempt.UseProxy
+                    && attempt.CheckCertificateRevocationList;
+
+                if (canUseSharedClient)
                 {
-                    // HttpRequestMessage одноразовый: создаём новый экземпляр на каждую TLS/HTTP попытку.
                     using var request = BuildRequest(payloadJson, attempt.HttpVersion);
                     var response = await _httpClient.SendAsync(request, cancellationToken);
                     _logger.LogInformation("Проверка нейминга: попытка {AttemptName} завершилась HTTP {StatusCode}.", attempt.Name, (int)response.StatusCode);
                     return response;
                 }
 
-                using var handler = CreateHttpHandler(attempt.Protocol, attempt.IgnoreSslErrors);
+                using var handler = CreateHttpHandler(attempt.Protocol, attempt.IgnoreSslErrors, attempt.CheckCertificateRevocationList, attempt.UseProxy);
                 using var client = new HttpClient(handler, disposeHandler: true);
                 using var tlsRequest = BuildRequest(payloadJson, attempt.HttpVersion);
-                var tlsResponse = await client.SendAsync(tlsRequest, cancellationToken);
+                using var tlsResponse = await client.SendAsync(tlsRequest, cancellationToken);
                 _logger.LogInformation("Проверка нейминга: попытка {AttemptName} завершилась HTTP {StatusCode}.", attempt.Name, (int)tlsResponse.StatusCode);
-                return tlsResponse;
+                return await CloneResponseAsync(tlsResponse, cancellationToken);
             }
             catch (HttpRequestException ex)
             {
                 lastError = ex;
-                _logger.LogWarning(ex, "Проверка нейминга: попытка {AttemptName} провалена (Protocol: {Protocol}, HttpVersion: {HttpVersion}).",
+                _logger.LogWarning(ex,
+                    "Проверка нейминга: попытка {AttemptName} провалена (Protocol: {Protocol}, HttpVersion: {HttpVersion}, UseProxy: {UseProxy}, HResult: {HResult}, Error: {Error}).",
                     attempt.Name,
                     attempt.Protocol?.ToString() ?? "SystemDefault",
-                    attempt.HttpVersion?.ToString() ?? "Default");
+                    attempt.HttpVersion?.ToString() ?? "Default",
+                    attempt.UseProxy,
+                    ex.HResult,
+                    ExtractErrorMessage(ex));
             }
             catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
                 lastError = new TimeoutException($"Таймаут при попытке {attempt.Name}.");
-                _logger.LogWarning("Проверка нейминга: попытка {AttemptName} завершилась таймаутом (Protocol: {Protocol}, HttpVersion: {HttpVersion}).",
+                _logger.LogWarning(
+                    "Проверка нейминга: попытка {AttemptName} завершилась таймаутом (Protocol: {Protocol}, HttpVersion: {HttpVersion}, UseProxy: {UseProxy}).",
                     attempt.Name,
                     attempt.Protocol?.ToString() ?? "SystemDefault",
-                    attempt.HttpVersion?.ToString() ?? "Default");
+                    attempt.HttpVersion?.ToString() ?? "Default",
+                    attempt.UseProxy);
             }
         }
 
         throw new NamingServiceException($"Не удалось подключиться к сервису Нейминг: {ExtractErrorMessage(lastError)}", HttpStatusCode.BadGateway);
+    }
+
+    private static async Task<HttpResponseMessage> CloneResponseAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        var clone = new HttpResponseMessage(response.StatusCode)
+        {
+            ReasonPhrase = response.ReasonPhrase,
+            Version = response.Version,
+            RequestMessage = response.RequestMessage
+        };
+
+        foreach (var header in response.Headers)
+        {
+            clone.Headers.TryAddWithoutValidation(header.Key, header.Value);
+        }
+
+        if (response.Content is not null)
+        {
+            var contentBytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+            var contentClone = new ByteArrayContent(contentBytes);
+
+            foreach (var header in response.Content.Headers)
+            {
+                contentClone.Headers.TryAddWithoutValidation(header.Key, header.Value);
+            }
+
+            clone.Content = contentClone;
+        }
+
+        return clone;
     }
 
     private static string ExtractErrorMessage(Exception? error)
@@ -212,14 +268,19 @@ public sealed class NamingService : INamingService
         return request;
     }
 
-    private HttpClientHandler CreateHttpHandler(SslProtocols? protocol, bool ignoreSslErrors = false)
+    private HttpClientHandler CreateHttpHandler(
+        SslProtocols? protocol,
+        bool ignoreSslErrors = false,
+        bool checkCertificateRevocationList = true,
+        bool useProxy = true)
     {
         var handler = new HttpClientHandler
         {
-            SslProtocols = protocol ?? (SslProtocols.Tls12 | SslProtocols.Tls11 | SslProtocols.Tls),
-            CheckCertificateRevocationList = false,
-            UseProxy = true,
-            Proxy = WebRequest.DefaultWebProxy
+            SslProtocols = protocol ?? SslProtocols.None,
+            CheckCertificateRevocationList = checkCertificateRevocationList,
+            UseProxy = useProxy,
+            Proxy = useProxy ? WebRequest.DefaultWebProxy : null,
+            DefaultProxyCredentials = CredentialCache.DefaultCredentials
         };
 
         if (_options.IgnoreSslErrors || ignoreSslErrors)
@@ -315,6 +376,7 @@ public sealed record HttpTlsAttempt(
     SslProtocols? Protocol,
     bool IgnoreSslErrors = false,
     bool CheckCertificateRevocationList = true,
+    bool UseProxy = true,
     Version? HttpVersion = null);
 
 public sealed class NamingServiceException : Exception

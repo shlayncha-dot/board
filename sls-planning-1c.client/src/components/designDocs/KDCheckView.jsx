@@ -84,6 +84,7 @@ const KDCheckView = ({
     namingReport,
     namingLogs,
     isNamingLogOpen,
+    onCopyNamingLog,
     onCloseNamingLog,
     verificationIssuesByRowId,
     verificationReport,
@@ -419,16 +420,19 @@ const KDCheckView = ({
                         <div className="verification-report-header">
                             <h3>Логи проверки Нейминг</h3>
                             <div className="verification-report-actions">
+                                <button type="button" onClick={onCopyNamingLog}>Скопировать</button>
                                 <button type="button" onClick={onCloseNamingLog}>Закрыть</button>
                             </div>
                         </div>
                         <div className="verification-report-body">
                             {(namingLogs || []).length ? (
-                                <ol className="naming-log-list">
+                                <div className="naming-log-list">
                                     {namingLogs.map((entry, index) => (
-                                        <li key={`${entry}-${index}`}>{entry}</li>
+                                        <p key={`${entry}-${index}`} className="naming-log-entry">
+                                            {index === 0 && entry.startsWith('Найдены отсутствующие') ? <strong>{entry}</strong> : entry}
+                                        </p>
                                     ))}
-                                </ol>
+                                </div>
                             ) : (
                                 <p>Логи пока отсутствуют.</p>
                             )}

@@ -979,15 +979,22 @@
 }
 
 .naming-log-modal {
-    max-width: 760px;
+    width: min(1400px, 95vw);
+    max-height: 90vh;
 }
 
 .naming-log-list {
     margin: 0;
-    padding-left: 20px;
     display: flex;
     flex-direction: column;
     gap: 8px;
+}
+
+.naming-log-entry {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    user-select: text;
 }
 
 .kd-table td {

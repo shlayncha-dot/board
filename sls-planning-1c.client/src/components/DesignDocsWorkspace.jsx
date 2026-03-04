@@ -243,9 +243,22 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
     const [generalCheckReport, setGeneralCheckReport] = useState(null);
 
     const appendNamingLog = useCallback((message) => {
-        const timestamp = new Date().toLocaleTimeString();
-        setNamingLogs((prevState) => [...prevState, `[${timestamp}] ${message}`]);
+        setNamingLogs((prevState) => [...prevState, message]);
     }, []);
+
+    const copyNamingLogs = useCallback(async () => {
+        const textToCopy = (namingLogs || []).join('\n');
+
+        if (!textToCopy.trim()) {
+            return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(textToCopy);
+        } catch {
+            alert('Не удалось скопировать текст.');
+        }
+    }, [namingLogs]);
 
     useEffect(() => {
         let isMounted = true;
@@ -751,22 +764,17 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
 
     const runNamingCheck = useCallback(async () => {
         const { rows: namingRows, nameColumnKey, errorMessage } = extractRowsForNamingCheck(sortedRows, tableColumns);
-        const effectiveLogin = String(namingLogin ?? '').trim();
-
         setNamingLogs([]);
         setIsNamingLogOpen(true);
-        appendNamingLog('Запуск проверки Нейминг.');
-        appendNamingLog(`Логин для авторизации: ${effectiveLogin || 'логин не определен'}.`);
-        appendNamingLog(`Подготовлено строк к проверке: ${namingRows.length}.`);
 
         if (errorMessage) {
-            appendNamingLog(`Ошибка подготовки данных: ${errorMessage}`);
+            appendNamingLog(errorMessage);
             alert(errorMessage);
             return;
         }
 
         if (!nameColumnKey) {
-            appendNamingLog('Ошибка: не найден столбец «Наименование».');
+            appendNamingLog('Не найден столбец «Наименование».');
             alert('Не найден столбец «Наименование».');
             return;
         }
@@ -783,7 +791,10 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
         }
 
         setNamingCheckInProgress(true);
-        appendNamingLog('Отправка запроса в /api/verification/naming.');
+        setNamingLogs(['Отправлен запрос на сервер. Ожидаем ответ.']);
+        const timeoutMs = 30000;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
         try {
             const response = await fetch(verificationApi.naming, {
@@ -791,14 +802,11 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ items: namingRows })
+                body: JSON.stringify({ items: namingRows }),
+                signal: controller.signal
             });
 
-            appendNamingLog(`Получен HTTP статус: ${response.status}.`);
-
             if (!response.ok) {
-                appendNamingLog('Сервис Нейминг вернул ошибку статуса.');
-
                 let serverMessage = `Ошибка запроса к сервису Нейминг (HTTP ${response.status}).`;
 
                 try {
@@ -809,17 +817,15 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
 
                     if (combinedMessage) {
                         serverMessage = combinedMessage;
-                        appendNamingLog(`Детали ошибки сервера: ${combinedMessage}`);
                     }
-                } catch {
-                    appendNamingLog('Не удалось прочитать тело ошибки от сервера.');
+                } catch (parseError) {
+                    void parseError;
                 }
 
                 throw new Error(serverMessage);
             }
 
             const result = await response.json();
-            appendNamingLog('Ответ сервиса успешно прочитан.');
             const notFoundRows = result.results.filter((item) => !item.isFound);
             const notFoundMap = notFoundRows.reduce((acc, item) => {
                 acc[item.rowId] = true;
@@ -831,28 +837,37 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
             if (notFoundRows.length === 0) {
                 const successMessage = 'Все названия соответствует базе 1С';
                 setNamingReport({ isSuccess: true, message: successMessage });
-                appendNamingLog('Все элементы найдены в базе 1С (Found).');
+                setNamingLogs([successMessage]);
                 alert(successMessage);
                 return;
             }
 
-            const reportLines = notFoundRows.map((item) => `Строка ${item.rowId}: ${item.name} — ${item.status}`);
-            const errorMessage = ['Найдены отсутствующие наименования в базе 1С:', ...reportLines].join('\n');
+            const reportLines = notFoundRows.map((item) => `${item.rowId}. ${item.name} — ${item.status}`);
+            const reportTitle = 'Найдены отсутствующие наименования в базе 1С:';
+            const errorMessage = [reportTitle, ...reportLines].join('\n');
 
             setNamingReport({
                 isSuccess: false,
                 message: `Не найдено в базе 1С: ${notFoundRows.length}`
             });
-            appendNamingLog(`Не найдено элементов: ${notFoundRows.length}. Строки помечены желтым.`);
+            setNamingLogs([reportTitle, ...reportLines]);
             alert(errorMessage);
         } catch (error) {
-            appendNamingLog(`Ошибка выполнения проверки: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
-            alert(error instanceof Error ? error.message : 'Ошибка выполнения проверки Нейминг.');
+            const noResponseMessage = 'Нет ответа от сервера, повторите позже.';
+
+            if (error instanceof Error && error.name === 'AbortError') {
+                setNamingLogs([noResponseMessage]);
+                alert(noResponseMessage);
+            } else {
+                const errorMessage = error instanceof Error ? error.message : 'Ошибка выполнения проверки Нейминг.';
+                setNamingLogs([errorMessage]);
+                alert(errorMessage);
+            }
         } finally {
+            clearTimeout(timeoutId);
             setNamingCheckInProgress(false);
-            appendNamingLog('Проверка Нейминг завершена.');
         }
-    }, [appendNamingLog, namingLogin, sortedRows, tableColumns]);
+    }, [appendNamingLog, sortedRows, tableColumns]);
 
     const runGeneralCheck = useCallback(() => {
         setGeneralCheckInProgress(true);
@@ -1112,6 +1127,7 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
                     namingReport={namingReport}
                     namingLogs={namingLogs}
                     isNamingLogOpen={isNamingLogOpen}
+                    onCopyNamingLog={copyNamingLogs}
                     onCloseNamingLog={() => setIsNamingLogOpen(false)}
                     verificationIssuesByRowId={verificationIssuesByRowId}
                     verificationReport={verificationReport}

@@ -2668,3 +2668,68 @@
     background: #fafafa;
     z-index: 1;
 }
+
+.production-order-list-page {
+    overflow: hidden;
+}
+
+.production-order-list-card {
+    flex: 1;
+    min-height: 0;
+}
+
+.production-order-list-filters {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    flex-wrap: nowrap;
+}
+
+.production-order-list-filter-field {
+    margin: 0;
+    min-width: 210px;
+}
+
+.production-order-list-generate-btn {
+    height: 40px;
+    border: 1px solid #37474f;
+    border-radius: 8px;
+    background: #f8fafc;
+    padding: 0 16px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.production-order-list-table-wrap {
+    margin-top: 14px;
+    border: 1px solid #ececec;
+    border-radius: 10px;
+    overflow: auto;
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+}
+
+.production-order-list-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 780px;
+    border: 1px dashed #5f6368;
+}
+
+.production-order-list-table th,
+.production-order-list-table td {
+    padding: 10px 12px;
+    border: 1px dashed #5f6368;
+    text-align: left;
+    font-size: 14px;
+    vertical-align: top;
+    white-space: nowrap;
+}
+
+.production-order-list-table th {
+    position: sticky;
+    top: 0;
+    background: #fafafa;
+    z-index: 1;
+}

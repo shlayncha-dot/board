@@ -838,30 +838,25 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
                 const successMessage = 'Все названия соответствует базе 1С';
                 setNamingReport({ isSuccess: true, message: successMessage });
                 setNamingLogs([successMessage]);
-                alert(successMessage);
                 return;
             }
 
             const reportLines = notFoundRows.map((item) => `${item.rowId}. ${item.name} — ${item.status}`);
             const reportTitle = 'Найдены отсутствующие наименования в базе 1С:';
-            const errorMessage = [reportTitle, ...reportLines].join('\n');
 
             setNamingReport({
                 isSuccess: false,
                 message: `Не найдено в базе 1С: ${notFoundRows.length}`
             });
             setNamingLogs([reportTitle, ...reportLines]);
-            alert(errorMessage);
         } catch (error) {
             const noResponseMessage = 'Нет ответа от сервера, повторите позже.';
 
             if (error instanceof Error && error.name === 'AbortError') {
                 setNamingLogs([noResponseMessage]);
-                alert(noResponseMessage);
             } else {
                 const errorMessage = error instanceof Error ? error.message : 'Ошибка выполнения проверки Нейминг.';
                 setNamingLogs([errorMessage]);
-                alert(errorMessage);
             }
         } finally {
             clearTimeout(timeoutId);

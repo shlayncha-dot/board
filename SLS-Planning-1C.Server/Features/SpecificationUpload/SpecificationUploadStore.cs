@@ -6,6 +6,7 @@ public interface ISpecificationUploadStore
 {
     Task<IReadOnlyList<string>> GetProductNamesAsync(CancellationToken cancellationToken);
     Task<IReadOnlyList<SpecificationRecordDto>> GetSpecificationsAsync(string? productName, CancellationToken cancellationToken);
+    Task<SpecificationRecordDto?> GetSpecificationByIdAsync(Guid id, CancellationToken cancellationToken);
     Task<int> GetNextVersionAsync(string productName, SpecificationType specType, CancellationToken cancellationToken);
     Task<SpecificationUploadResultDto> UploadAsync(SpecificationUploadRequest request, CancellationToken cancellationToken);
 }
@@ -98,6 +99,20 @@ public sealed class SpecificationUploadStore : ISpecificationUploadStore
                 .Max();
 
             return maxVersion + 1;
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    public async Task<SpecificationRecordDto?> GetSpecificationByIdAsync(Guid id, CancellationToken cancellationToken)
+    {
+        await _semaphore.WaitAsync(cancellationToken);
+        try
+        {
+            var db = await ReadUnsafeAsync(cancellationToken);
+            return db.Specifications.FirstOrDefault(item => item.Id == id);
         }
         finally
         {

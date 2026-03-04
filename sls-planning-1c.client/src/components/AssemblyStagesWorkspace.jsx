@@ -1,8 +1,28 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { createAssemblyProcedure, getAssemblyProcedures } from '../services/assemblyStagesService';
+import {
+    createAssemblyProcedure,
+    downloadSpecificationFile,
+    getAssemblyProcedures,
+    getUploadedSpecifications
+} from '../services/assemblyStagesService';
 
 const DEFAULT_PROCEDURE_TITLE = 'Процедура (не задано)';
 const MIN_COLUMN_WIDTH = 36;
+
+const SPECIFICATION_TYPE_LABELS = {
+    0: 'Базовая',
+    1: 'Кабельная',
+    2: 'Упаковка',
+    3: 'Технологическая'
+};
+
+const formatSpecificationType = (specType) => {
+    if (typeof specType === 'string' && specType.trim()) {
+        return specType;
+    }
+
+    return SPECIFICATION_TYPE_LABELS[Number(specType)] || 'Не указан';
+};
 
 const formatNormativeTotalMinutes = (secondsTotal) => String(Math.ceil(secondsTotal / 60));
 
@@ -338,7 +358,6 @@ const mapProcedureForView = (item) => ({
 });
 
 const AssemblyStagesWorkspace = () => {
-    const fileInputRef = useRef(null);
 
     const [procedureName, setProcedureName] = useState('');
     const [place, setPlace] = useState('');
@@ -354,6 +373,12 @@ const AssemblyStagesWorkspace = () => {
     const [columnWidths, setColumnWidths] = useState({});
     const [bottomSearchValue, setBottomSearchValue] = useState('');
     const [isSavingProcedure, setIsSavingProcedure] = useState(false);
+    const [isSpecDialogOpen, setIsSpecDialogOpen] = useState(false);
+    const [isSpecListLoading, setIsSpecListLoading] = useState(false);
+    const [specListError, setSpecListError] = useState('');
+    const [availableSpecifications, setAvailableSpecifications] = useState([]);
+    const [selectedSpecificationId, setSelectedSpecificationId] = useState('');
+    const [isSpecificationLoading, setIsSpecificationLoading] = useState(false);
 
     const typeColumnIndex = useMemo(() => findColumnIndex(tableColumns, ['тип', 'type']), [tableColumns]);
     const pozColumnIndex = useMemo(() => findColumnIndex(tableColumns, ['поз', 'позиц']), [tableColumns]);
@@ -458,16 +483,39 @@ const AssemblyStagesWorkspace = () => {
         return bottomRows.filter((row) => row.values.some((value) => String(value || '').toLowerCase().includes(normalizedSearch)));
     }, [bottomRows, bottomSearchValue]);
 
-    const handleLoadSpecification = async (event) => {
-        const file = event.target.files?.[0];
+    const loadSpecificationsForDialog = async () => {
+        try {
+            setIsSpecListLoading(true);
+            setSpecListError('');
+            const specifications = await getUploadedSpecifications();
+            setAvailableSpecifications(Array.isArray(specifications) ? specifications : []);
+        } catch (error) {
+            setAvailableSpecifications([]);
+            setSpecListError(error instanceof Error ? error.message : 'Не удалось загрузить список спецификаций.');
+        } finally {
+            setIsSpecListLoading(false);
+        }
+    };
 
-        if (!file) {
+    const openSpecificationDialog = async () => {
+        setIsSpecDialogOpen(true);
+        await loadSpecificationsForDialog();
+    };
+
+    const handleSelectSpecification = async () => {
+        const selectedSpecification = availableSpecifications.find((item) => item.id === selectedSpecificationId);
+
+        if (!selectedSpecification) {
+            alert('Выберите спецификацию из списка.');
             return;
         }
 
         try {
-            const parsedTable = await parseTableFromExcel(file);
-            setSpecificationName(file.name);
+            setIsSpecificationLoading(true);
+            const specificationFile = await downloadSpecificationFile(selectedSpecification.id);
+            const parsedTable = await parseTableFromExcel(specificationFile);
+
+            setSpecificationName(selectedSpecification.specificationName || selectedSpecification.originalFileName || '');
             setTableColumns(parsedTable.columns);
             setTopRows([]);
             setBottomRows(parsedTable.rows);
@@ -475,10 +523,11 @@ const AssemblyStagesWorkspace = () => {
             setSelectedBottomIds(new Set());
             setColumnWidths({});
             setBottomSearchValue('');
-        } catch {
-            alert('Не удалось прочитать Excel-файл. Проверьте формат .xls/.xlsx и повторите попытку.');
+            setIsSpecDialogOpen(false);
+        } catch (error) {
+            alert(error instanceof Error ? error.message : 'Не удалось прочитать выбранную спецификацию.');
         } finally {
-            event.target.value = '';
+            setIsSpecificationLoading(false);
         }
     };
 
@@ -599,16 +648,9 @@ const AssemblyStagesWorkspace = () => {
     return (
         <section className="assembly-stages-layout">
             <header className="assembly-stages-toolbar">
-                <button type="button" className="assembly-stages-upload-btn" onClick={() => fileInputRef.current?.click()}>📥 Загрузить спецификацию</button>
+                <button type="button" className="assembly-stages-upload-btn" onClick={openSpecificationDialog}>📥 Загрузить спецификацию</button>
                 <button type="button" onClick={handleExportExcel}>📊 Создать Excel</button>
 
-                <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".xlsx,.xls"
-                    onChange={handleLoadSpecification}
-                    style={{ display: 'none' }}
-                />
             </header>
 
             <div className="assembly-stages-main-scroll">
@@ -731,6 +773,58 @@ const AssemblyStagesWorkspace = () => {
                     </aside>
                 </div>
             </div>
+
+            {isSpecDialogOpen ? (
+                <div className="route-sheets-dialog-backdrop" onClick={() => setIsSpecDialogOpen(false)}>
+                    <div className="route-sheets-dialog" role="dialog" aria-modal="true" aria-label="Выбор спецификации" onClick={(event) => event.stopPropagation()}>
+                        <h3>Выбор спецификации из БД</h3>
+                        {specListError ? <p className="route-sheets-error">{specListError}</p> : null}
+                        <div className="spec-list-table-wrap">
+                            <table className="spec-list-table">
+                                <thead>
+                                    <tr>
+                                        <th></th>
+                                        <th>Наименование</th>
+                                        <th>Тип</th>
+                                        <th>Код</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {isSpecListLoading ? (
+                                        <tr>
+                                            <td colSpan={4}>Загрузка...</td>
+                                        </tr>
+                                    ) : availableSpecifications.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={4}>В базе пока нет спецификаций.</td>
+                                        </tr>
+                                    ) : availableSpecifications.map((item) => (
+                                        <tr key={item.id}>
+                                            <td>
+                                                <input
+                                                    type="radio"
+                                                    name="selectedSpecification"
+                                                    checked={selectedSpecificationId === item.id}
+                                                    onChange={() => setSelectedSpecificationId(item.id)}
+                                                />
+                                            </td>
+                                            <td>{item.specificationName || '—'}</td>
+                                            <td>{formatSpecificationType(item.specType)}</td>
+                                            <td>{item.specificationCode || '—'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div className="route-sheets-dialog-actions">
+                            <button type="button" className="save-btn" onClick={handleSelectSpecification} disabled={isSpecificationLoading || isSpecListLoading}>
+                                {isSpecificationLoading ? 'Загрузка…' : 'Загрузить'}
+                            </button>
+                            <button type="button" className="cancel-btn" onClick={() => setIsSpecDialogOpen(false)} disabled={isSpecificationLoading}>Отмена</button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
         </section>
     );
 };

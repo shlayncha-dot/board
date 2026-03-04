@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.StaticFiles;
 using SLS_Planning_1C.Server.Features.SpecificationUpload;
 
 namespace SLS_Planning_1C.Server.Controllers;
@@ -29,6 +30,29 @@ public sealed class SpecificationUploadController : ControllerBase
     {
         var specifications = await _store.GetSpecificationsAsync(productName, cancellationToken);
         return Ok(specifications);
+    }
+
+    [HttpGet("specifications/{id:guid}/file")]
+    public async Task<IActionResult> DownloadSpecificationFile(Guid id, CancellationToken cancellationToken)
+    {
+        var specification = await _store.GetSpecificationByIdAsync(id, cancellationToken);
+
+        if (specification is null)
+        {
+            return NotFound(new { message = "Спецификация не найдена." });
+        }
+
+        if (string.IsNullOrWhiteSpace(specification.StoragePath) || !System.IO.File.Exists(specification.StoragePath))
+        {
+            return NotFound(new { message = "Файл спецификации не найден в хранилище." });
+        }
+
+        var contentTypeProvider = new FileExtensionContentTypeProvider();
+        var contentType = contentTypeProvider.TryGetContentType(specification.OriginalFileName, out var resolvedContentType)
+            ? resolvedContentType
+            : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+        return PhysicalFile(specification.StoragePath, contentType, specification.OriginalFileName);
     }
 
     [HttpGet("next-version")]

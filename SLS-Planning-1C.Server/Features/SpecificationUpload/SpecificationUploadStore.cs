@@ -46,7 +46,7 @@ public sealed class SpecificationUploadStore : ISpecificationUploadStore
         {
             var db = await ReadUnsafeAsync(cancellationToken);
             return db.Specifications
-                .Select(row => row.ProductName.Trim())
+                .Select(row => row.SpecificationName.Trim())
                 .Where(row => !string.IsNullOrWhiteSpace(row))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(row => row, StringComparer.OrdinalIgnoreCase)
@@ -70,7 +70,7 @@ public sealed class SpecificationUploadStore : ISpecificationUploadStore
 
             if (!string.IsNullOrWhiteSpace(normalizedProductName))
             {
-                query = query.Where(row => string.Equals(row.ProductName, normalizedProductName, StringComparison.OrdinalIgnoreCase));
+                query = query.Where(row => string.Equals(row.SpecificationName, normalizedProductName, StringComparison.OrdinalIgnoreCase));
             }
 
             return query
@@ -92,8 +92,8 @@ public sealed class SpecificationUploadStore : ISpecificationUploadStore
         {
             var db = await ReadUnsafeAsync(cancellationToken);
             var maxVersion = db.Specifications
-                .Where(row => string.Equals(row.ProductName, normalizedProductName, StringComparison.OrdinalIgnoreCase) && row.SpecType == specType)
-                .Select(row => row.Version)
+                .Where(row => string.Equals(row.SpecificationName, normalizedProductName, StringComparison.OrdinalIgnoreCase) && row.SpecType == specType)
+                .Select(row => ExtractVersion(row.SpecificationCode))
                 .DefaultIfEmpty(0)
                 .Max();
 
@@ -144,8 +144,8 @@ public sealed class SpecificationUploadStore : ISpecificationUploadStore
         {
             var db = await ReadUnsafeAsync(cancellationToken);
             var nextVersion = db.Specifications
-                .Where(row => string.Equals(row.ProductName, productName, StringComparison.OrdinalIgnoreCase) && row.SpecType == request.SpecType)
-                .Select(row => row.Version)
+                .Where(row => string.Equals(row.SpecificationName, specificationName, StringComparison.OrdinalIgnoreCase) && row.SpecType == request.SpecType)
+                .Select(row => ExtractVersion(row.SpecificationCode))
                 .DefaultIfEmpty(0)
                 .Max() + 1;
 
@@ -164,10 +164,8 @@ public sealed class SpecificationUploadStore : ISpecificationUploadStore
             var record = new SpecificationRecordDto
             {
                 Id = Guid.NewGuid(),
-                ProductName = productName,
                 SpecificationName = specificationName,
                 SpecType = request.SpecType,
-                Version = version,
                 SpecificationCode = specCode,
                 OriginalFileName = request.File.FileName,
                 UploadedBy = uploadedBy,
@@ -205,6 +203,23 @@ public sealed class SpecificationUploadStore : ISpecificationUploadStore
     public static string BuildSpecificationCode(SpecificationType specType, string productName, int version)
     {
         return $"{specType}_{productName.Trim()}.V{version}";
+    }
+
+    private static int ExtractVersion(string specificationCode)
+    {
+        if (string.IsNullOrWhiteSpace(specificationCode))
+        {
+            return 0;
+        }
+
+        var versionMarkIndex = specificationCode.LastIndexOf(".V", StringComparison.OrdinalIgnoreCase);
+        if (versionMarkIndex < 0)
+        {
+            return 0;
+        }
+
+        var versionPart = specificationCode[(versionMarkIndex + 2)..];
+        return int.TryParse(versionPart, out var version) ? version : 0;
     }
 
     private void EnsureSeeded()

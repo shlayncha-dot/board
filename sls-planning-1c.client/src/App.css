@@ -2648,16 +2648,18 @@
 .spec-list-table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 1700px;
+    min-width: 1200px;
+    border: 1px dashed #5f6368;
 }
 
 .spec-list-table th,
 .spec-list-table td {
     padding: 10px 12px;
-    border-bottom: 1px solid #f0f0f0;
+    border: 1px dashed #5f6368;
     text-align: left;
     font-size: 14px;
     vertical-align: top;
+    white-space: nowrap;
 }
 
 .spec-list-table th {

@@ -18,10 +18,8 @@ public enum OneCSyncStatus
 public sealed class SpecificationRecordDto
 {
     public Guid Id { get; set; }
-    public string ProductName { get; set; } = string.Empty;
     public string SpecificationName { get; set; } = string.Empty;
     public SpecificationType SpecType { get; set; }
-    public int Version { get; set; }
     public string SpecificationCode { get; set; } = string.Empty;
     public string OriginalFileName { get; set; } = string.Empty;
     public string UploadedBy { get; set; } = string.Empty;

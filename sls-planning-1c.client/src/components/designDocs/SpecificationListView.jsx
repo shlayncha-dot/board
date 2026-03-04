@@ -15,19 +15,14 @@ const formatDateTime = (value) => {
 };
 
 const getSearchableValue = (specification) => [
-    specification.productName,
     specification.specificationName,
     specification.specType,
-    specification.version,
     specification.specificationCode,
     specification.originalFileName,
     specification.uploadedBy,
     specification.comment,
-    specification.storagePath,
     specification.uploadedAtUtc,
     specification.oneCSyncStatus,
-    specification.oneCSyncMessage,
-    specification.id
 ]
     .map((value) => String(value ?? '').toLowerCase())
     .join(' ');
@@ -70,46 +65,36 @@ const SpecificationListView = ({
                     <table className="spec-list-table">
                         <thead>
                             <tr>
-                                <th>Id</th>
-                                <th>Наименование изделия</th>
                                 <th>Наименование спецификации</th>
                                 <th>Тип спецификации</th>
-                                <th>Версия</th>
                                 <th>Код спецификации</th>
                                 <th>Имя файла</th>
                                 <th>Загрузил</th>
                                 <th>Комментарий</th>
-                                <th>Путь хранения</th>
                                 <th>Дата загрузки (UTC)</th>
                                 <th>Статус синхронизации 1C</th>
-                                <th>Сообщение синхронизации</th>
                             </tr>
                         </thead>
                         <tbody>
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan={13}>Загрузка...</td>
+                                    <td colSpan={8}>Загрузка...</td>
                                 </tr>
                             ) : filteredSpecifications.length === 0 ? (
                                 <tr>
-                                    <td colSpan={13}>{normalizedSearch ? 'Поиск не дал результатов.' : 'Список спецификаций пуст.'}</td>
+                                    <td colSpan={8}>{normalizedSearch ? 'Поиск не дал результатов.' : 'Список спецификаций пуст.'}</td>
                                 </tr>
                             ) : (
                                 filteredSpecifications.map((specification) => (
                                     <tr key={specification.id}>
-                                        <td>{specification.id || '—'}</td>
-                                        <td>{specification.productName || '—'}</td>
                                         <td>{specification.specificationName || '—'}</td>
                                         <td>{specification.specType || '—'}</td>
-                                        <td>{specification.version ?? '—'}</td>
                                         <td>{specification.specificationCode || '—'}</td>
                                         <td>{specification.originalFileName || '—'}</td>
                                         <td>{specification.uploadedBy || '—'}</td>
                                         <td>{specification.comment || '—'}</td>
-                                        <td>{specification.storagePath || '—'}</td>
                                         <td>{formatDateTime(specification.uploadedAtUtc)}</td>
                                         <td>{specification.oneCSyncStatus || '—'}</td>
-                                        <td>{specification.oneCSyncMessage || '—'}</td>
                                     </tr>
                                 ))
                             )}

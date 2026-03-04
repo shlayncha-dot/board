@@ -23,7 +23,6 @@ builder.Services.AddSingleton<IFileIndexStore, FileIndexStore>();
 builder.Services.AddScoped<IVerificationService, VerificationService>();
 builder.Services.AddSingleton<IVerificationSettingsStore, VerificationSettingsStore>();
 builder.Services.AddScoped<INamingService, NamingService>();
-builder.Services.AddHttpClient<ISpecificationTestService, SpecificationTestService>();
 builder.Services.AddSingleton<INamingCredentialsStore, NamingRuntimeCredentialsStore>();
 builder.Services.Configure<NamingApiOptions>(builder.Configuration.GetSection("ExternalApis:Naming"));
 builder.Services.AddSingleton<IUserStore, UserStore>();

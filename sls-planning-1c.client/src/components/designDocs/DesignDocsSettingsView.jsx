@@ -7,10 +7,6 @@ const DesignDocsSettingsView = ({
     onSpecificationSettingChange,
     onSave,
     onCancel,
-    onRunSpecificationApiTest,
-    isSpecificationApiTestRunning,
-    specificationApiTestResult,
-    onCloseSpecificationApiTestResult
 }) => {
     return (
         <section className="design-docs-page design-docs-settings-page">
@@ -80,22 +76,8 @@ const DesignDocsSettingsView = ({
             <div className="design-docs-actions">
                 <button type="button" className="save-btn" onClick={onSave}>Сохранить</button>
                 <button type="button" className="cancel-btn" onClick={onCancel}>Отмена</button>
-                <button type="button" className="save-btn" onClick={onRunSpecificationApiTest} disabled={isSpecificationApiTestRunning}>
-                    {isSpecificationApiTestRunning ? 'Тест АПИ…' : 'Тест АПИ'}
-                </button>
             </div>
 
-            {specificationApiTestResult ? (
-                <div className="verification-report-overlay" role="dialog" aria-modal="true" aria-label="Результат теста API">
-                    <div className="verification-report-modal">
-                        <h3>Результат теста API</h3>
-                        <p>{specificationApiTestResult}</p>
-                        <div className="verification-report-actions">
-                            <button type="button" className="save-btn" onClick={onCloseSpecificationApiTestResult}>Ок</button>
-                        </div>
-                    </div>
-                </div>
-            ) : null}
         </section>
     );
 };

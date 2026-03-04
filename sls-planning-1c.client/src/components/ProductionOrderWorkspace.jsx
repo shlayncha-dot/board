@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { specificationUploadApi } from '../config/apiConfig';
 import { t } from '../config/translations';
 
@@ -45,23 +45,6 @@ const ProductionOrderWorkspace = ({ lang }) => {
     const [specificationOptionsByType, setSpecificationOptionsByType] = useState(() => normalizeSpecificationOptions([]));
     const [isSpecOptionsLoading, setIsSpecOptionsLoading] = useState(false);
     const [specOptionsError, setSpecOptionsError] = useState('');
-
-    const summaryRows = useMemo(() => {
-        const summaryMap = new Map();
-
-        items.forEach(({ name, quantity }) => {
-            const normalizedName = name.trim();
-            const parsedQuantity = Number(quantity) || 0;
-
-            if (!summaryMap.has(normalizedName)) {
-                summaryMap.set(normalizedName, 0);
-            }
-
-            summaryMap.set(normalizedName, summaryMap.get(normalizedName) + parsedQuantity);
-        });
-
-        return Array.from(summaryMap.entries()).map(([name, quantity]) => ({ name, quantity }));
-    }, [items]);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -165,10 +148,6 @@ const ProductionOrderWorkspace = ({ lang }) => {
             </div>
 
             <div className="production-order-table-block">
-                <div className="production-order-table-header">
-                    <h3>{t(lang, 'productionOrder.items')}</h3>
-                </div>
-
                 {isSpecOptionsLoading ? <p className="production-order-status">{t(lang, 'productionOrder.specLoading')}</p> : null}
                 {specOptionsError ? <p className="production-order-status production-order-status-error">{specOptionsError}</p> : null}
 
@@ -226,36 +205,6 @@ const ProductionOrderWorkspace = ({ lang }) => {
                 </div>
             </div>
 
-            <div className="production-order-table-block">
-                <h3>{`${t(lang, 'productionOrder.summary')}: ${items.length}`}</h3>
-                <div className="production-order-table-scroll">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>{t(lang, 'productionOrder.nomenclature')}</th>
-                                <th>{t(lang, 'productionOrder.quantity')}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {summaryRows.length === 0 ? (
-                                <tr>
-                                    <td colSpan={2} className="production-order-empty-row">
-                                        {t(lang, 'productionOrder.noSummary')}
-                                    </td>
-                                </tr>
-                            ) : (
-                                summaryRows.map((row) => (
-                                    <tr key={row.name}>
-                                        <td>{row.name}</td>
-                                        <td>{row.quantity}</td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
             <div className="production-order-actions">
                 <button className="production-order-create-btn">{t(lang, 'productionOrder.create')}</button>
                 <button className="production-order-cancel-btn" onClick={handleCancel}>{t(lang, 'productionOrder.cancel')}</button>
@@ -275,24 +224,26 @@ const ProductionOrderWorkspace = ({ lang }) => {
                             />
                         </label>
 
-                        <label className="production-order-field">
-                            <span>{t(lang, 'productionOrder.quantity')}</span>
-                            <input
-                                type="number"
-                                min="1"
-                                value={newItem.quantity}
-                                onChange={(event) => setNewItem((prev) => ({ ...prev, quantity: event.target.value }))}
-                            />
-                        </label>
+                        <div className="production-order-modal-row">
+                            <label className="production-order-field production-order-modal-field">
+                                <span>{t(lang, 'productionOrder.quantity')}</span>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    value={newItem.quantity}
+                                    onChange={(event) => setNewItem((prev) => ({ ...prev, quantity: event.target.value }))}
+                                />
+                            </label>
 
-                        <label className="production-order-field">
-                            <span>{t(lang, 'productionOrder.dueDate')}</span>
-                            <input
-                                type="date"
-                                value={newItem.dueDate}
-                                onChange={(event) => setNewItem((prev) => ({ ...prev, dueDate: event.target.value }))}
-                            />
-                        </label>
+                            <label className="production-order-field production-order-modal-field">
+                                <span>{t(lang, 'productionOrder.dueDate')}</span>
+                                <input
+                                    type="date"
+                                    value={newItem.dueDate}
+                                    onChange={(event) => setNewItem((prev) => ({ ...prev, dueDate: event.target.value }))}
+                                />
+                            </label>
+                        </div>
 
                         <div className="production-order-actions">
                             <button className="production-order-create-btn" onClick={handleAddItem}>{t(lang, 'productionOrder.add')}</button>

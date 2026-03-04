@@ -63,6 +63,10 @@ const translations = {
     'productionOrder.cancel': 'Отмена',
     'productionOrder.addDialogTitle': 'Новая номенклатура',
     'productionOrder.add': 'Добавить',
+    'productionOrder.selectSpecification': 'Выберите спецификацию',
+    'productionOrder.noSpecificationsForType': 'Нет доступных спецификаций',
+    'productionOrder.specLoading': 'Загрузка спецификаций...',
+    'productionOrder.specLoadError': 'Не удалось загрузить список спецификаций.',
 
     'admin.createUser': 'Создать пользователя',
     'admin.userSettings': 'Настройки пользователей',
@@ -169,6 +173,10 @@ const translations = {
     'productionOrder.cancel': 'Cancel',
     'productionOrder.addDialogTitle': 'New nomenclature',
     'productionOrder.add': 'Add',
+    'productionOrder.selectSpecification': 'Select specification',
+    'productionOrder.noSpecificationsForType': 'No specifications available',
+    'productionOrder.specLoading': 'Loading specifications...',
+    'productionOrder.specLoadError': 'Failed to load specifications.',
 
     'admin.createUser': 'Create user',
     'admin.userSettings': 'User settings',
@@ -275,6 +283,10 @@ const translations = {
     'productionOrder.cancel': 'გაუქმება',
     'productionOrder.addDialogTitle': 'ახალი ნომენკლატურა',
     'productionOrder.add': 'დამატება',
+    'productionOrder.selectSpecification': 'აირჩიეთ სპეციფიკაცია',
+    'productionOrder.noSpecificationsForType': 'სპეციფიკაციები ხელმისაწვდომი არ არის',
+    'productionOrder.specLoading': 'სპეციფიკაციების ჩატვირთვა...',
+    'productionOrder.specLoadError': 'სპეციფიკაციების ჩატვირთვა ვერ მოხერხდა.',
 
     'admin.createUser': 'მომხმარებლის შექმნა',
     'admin.userSettings': 'მომხმარებლების პარამეტრები',

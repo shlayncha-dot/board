@@ -2214,11 +2214,16 @@
     margin: 0 0 16px;
 }
 
-.production-order-controls {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(220px, 1fr));
+.production-order-top-controls {
+    display: flex;
+    align-items: flex-end;
     gap: 12px;
     margin-bottom: 12px;
+}
+
+.production-order-order-name-field {
+    flex: 1;
+    margin-bottom: 0;
 }
 
 .production-order-table-block {
@@ -2359,6 +2364,29 @@
     border-radius: 12px;
     padding: 20px;
     width: min(480px, 100%);
+}
+
+.production-order-status {
+    margin: 8px 0;
+    font-size: 13px;
+    color: #475569;
+}
+
+.production-order-status-error {
+    color: #b91c1c;
+}
+
+.production-order-spec-empty {
+    margin-top: 4px;
+    font-size: 12px;
+    color: #94a3b8;
+}
+
+@media (max-width: 768px) {
+    .production-order-top-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
 }
 
 .assembly-stages-layout {

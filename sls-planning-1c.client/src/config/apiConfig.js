@@ -2,6 +2,7 @@ export const verificationApi = {
     kd: '/api/verification/kd',
     settings: '/api/verification/settings',
     naming: '/api/verification/naming',
+    specificationTest: '/api/verification/specification-test',
     namingAuthStatus: '/api/naming-auth/status',
     namingAuthCredentials: '/api/naming-auth/credentials'
 };

@@ -1,0 +1,9 @@
+services:
+  naming-proxy:
+    build: .
+    container_name: naming-proxy
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "8088:8088"

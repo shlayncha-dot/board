@@ -27,6 +27,7 @@ public sealed class NamingCheckResponse
 public sealed class NamingApiOptions
 {
     public string CheckUrl { get; init; } = string.Empty;
+    public string SpecificationTestUrl { get; init; } = string.Empty;
     public string Username { get; init; } = string.Empty;
     public string Password { get; init; } = string.Empty;
     public bool IgnoreSslErrors { get; init; }

@@ -305,6 +305,24 @@ function Invoke-SyncRequest(
   }
 }
 
+function Test-IsLoopbackUrl([string]$Url) {
+  if ([string]::IsNullOrWhiteSpace($Url)) {
+    return $false
+  }
+
+  try {
+    $uri = [Uri]$Url
+    if (-not $uri.IsAbsoluteUri) {
+      return $false
+    }
+
+    return $uri.IsLoopback
+  }
+  catch {
+    return $false
+  }
+}
+
 if (-not (Test-Path -LiteralPath $ConfigPath)) {
   throw "Config not found: $ConfigPath"
 }
@@ -365,6 +383,11 @@ Write-Host "Retry delay: $retryDelaySeconds sec"
 Write-Host "Disable keep-alive: $disableKeepAlive"
 Write-Host "State file: $statePath"
 Write-Host "Excluded files from scan: $($excludedPaths.Keys.Count)"
+
+if (Test-IsLoopbackUrl -Url $serverUrl) {
+  Write-Host "[$(Get-Date -Format o)] Warning: serverUrl points to localhost/loopback."
+  Write-Host "[$(Get-Date -Format o)] If this indexer runs on another machine, localhost points to that machine itself, not to your production server."
+}
 
 $lastHash = Read-IndexerState -StatePath $statePath
 

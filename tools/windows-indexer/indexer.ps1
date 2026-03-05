@@ -323,7 +323,8 @@ while ($true) {
 
     for ($i = 0; $i -lt $totalChunks; $i++) {
       $payload = $payloadTemplate.Clone()
-      $payload.Files = @($batches[$i])
+      $batchFiles = @($batches[$i])
+      $payload.Files = $batchFiles
 
       if ($totalChunks -gt 1) {
         $payload.ChunkIndex = $i + 1
@@ -332,7 +333,7 @@ while ($true) {
 
       $json = $payload | ConvertTo-Json -Depth 6 -Compress
       Invoke-SyncRequest -Uri $syncUrl -Headers $headers -Body $json -TimeoutSec $requestTimeoutSeconds -RetryCount $retryCount -RetryDelaySeconds $retryDelaySeconds -DisableKeepAlive $disableKeepAlive
-      Write-Host "[$(Get-Date -Format o)] Synced chunk $($i + 1)/$totalChunks, files: $($batches[$i].Count)"
+      Write-Host "[$(Get-Date -Format o)] Synced chunk $($i + 1)/$totalChunks, files: $($batchFiles.Count)"
     }
 
     $lastHash = $snapshotHash

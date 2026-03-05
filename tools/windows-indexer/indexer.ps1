@@ -354,6 +354,33 @@ function Test-IsTransientSendError([System.Management.Automation.ErrorRecord]$Er
     $combined.Contains('unexpected error on send')
 }
 
+
+function Test-ShouldFallbackToFullSync([System.Management.Automation.ErrorRecord]$ErrorRecord) {
+  if (-not $ErrorRecord -or -not $ErrorRecord.Exception) {
+    return $false
+  }
+
+  $response = Get-ExceptionResponse -Exception $ErrorRecord.Exception
+  if (-not $response -or -not $response.StatusCode) {
+    return $false
+  }
+
+  $statusCode = [int]$response.StatusCode
+  if ($statusCode -ne 400 -and $statusCode -ne 404 -and $statusCode -ne 409) {
+    return $false
+  }
+
+  $details = Get-HttpErrorDetails -ErrorRecord $ErrorRecord
+  if ([string]::IsNullOrWhiteSpace($details)) {
+    return $false
+  }
+
+  $detailsLower = $details.ToLowerInvariant()
+  return $detailsLower.Contains('конфликт версий snapshot') -or
+    $detailsLower.Contains('требуется полная пересинхронизация') -or
+    $detailsLower.Contains('базовый snapshot для машины не найден')
+}
+
 function Invoke-SyncRequest(
   [string]$Uri,
   [hashtable]$Headers,
@@ -611,8 +638,19 @@ while ($true) {
           Write-Host "[$(Get-Date -Format o)] Changes detected. Sending delta (added/updated: $($deltaPayload.AddedOrUpdatedFiles.Count), deleted: $($deltaPayload.DeletedRelativePaths.Count))."
         }
 
-        Invoke-SyncRequest -Uri $syncDeltaUrl -Headers $headers -Body $deltaJson -TimeoutSec $requestTimeoutSeconds -RetryCount $retryCount -RetryDelaySeconds $retryDelaySeconds -DisableKeepAlive $disableKeepAlive
-        $deltaSent = $true
+        try {
+          Invoke-SyncRequest -Uri $syncDeltaUrl -Headers $headers -Body $deltaJson -TimeoutSec $requestTimeoutSeconds -RetryCount $retryCount -RetryDelaySeconds $retryDelaySeconds -DisableKeepAlive $disableKeepAlive
+          $deltaSent = $true
+        }
+        catch {
+          if (Test-ShouldFallbackToFullSync -ErrorRecord $_) {
+            Write-Host "[$(Get-Date -Format o)] Delta rejected by server (state mismatch). Switching to full sync in this cycle."
+            $deltaSent = $false
+          }
+          else {
+            throw
+          }
+        }
       }
       elseif (Should-WriteCycleLog -EmitCycleLogs $emitCycleLogs) {
         Write-Host "[$(Get-Date -Format o)] Delta payload is too large ($deltaBytes bytes). Fallback to full sync."

@@ -27,4 +27,20 @@ public sealed class FileIndexController : ControllerBase
             return BadRequest(ex.Message);
         }
     }
+
+    [HttpPost("test")]
+    public ActionResult<string> Test([FromBody] FileIndexTestRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.FileName))
+        {
+            return BadRequest("FileName is required.");
+        }
+
+        return Ok("Дякую");
+    }
+}
+
+public sealed class FileIndexTestRequest
+{
+    public required string FileName { get; init; }
 }

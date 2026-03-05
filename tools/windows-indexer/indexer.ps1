@@ -95,6 +95,68 @@ function Convert-ToIndexEntry([System.IO.FileInfo]$File, [string]$ScanRoot) {
   }
 }
 
+function Convert-ToSafeString([object]$Value) {
+  if ($null -eq $Value) {
+    return $null
+  }
+
+  if ($Value -is [string]) {
+    return $Value
+  }
+
+  if (
+    $Value -is [char] -or
+    $Value -is [bool] -or
+    $Value -is [byte] -or
+    $Value -is [sbyte] -or
+    $Value -is [int16] -or
+    $Value -is [uint16] -or
+    $Value -is [int32] -or
+    $Value -is [uint32] -or
+    $Value -is [int64] -or
+    $Value -is [uint64] -or
+    $Value -is [single] -or
+    $Value -is [double] -or
+    $Value -is [decimal] -or
+    $Value -is [datetime]
+  ) {
+    return [string]$Value
+  }
+
+  return $null
+}
+
+function Convert-ToWireFileEntry([object]$Entry) {
+  if (-not $Entry) {
+    return $null
+  }
+
+  $fileName = Convert-ToSafeString $Entry.FileName
+  $relativePath = Convert-ToSafeString $Entry.RelativePath
+  $extension = Convert-ToSafeString $Entry.Extension
+  $lastWriteTimeUtc = Convert-ToSafeString $Entry.LastWriteTimeUtc
+
+  if ([string]::IsNullOrWhiteSpace($fileName) -or [string]::IsNullOrWhiteSpace($relativePath)) {
+    return $null
+  }
+
+  $sizeBytes = 0L
+  try {
+    $sizeBytes = [int64]$Entry.SizeBytes
+  }
+  catch {
+    return $null
+  }
+
+  [ordered]@{
+    FileName = $fileName
+    RelativePath = $relativePath
+    Extension = if ($extension) { $extension.ToLowerInvariant() } else { '' }
+    LastWriteTimeUtc = if ($lastWriteTimeUtc) { $lastWriteTimeUtc } else { (Get-Date).ToUniversalTime().ToString('o') }
+    SizeBytes = $sizeBytes
+  }
+}
+
 function Split-FileBatches([array]$Files, [hashtable]$PayloadTemplate, [int]$MaxPayloadBytes) {
   if ($Files.Count -eq 0) {
     return @(@())
@@ -352,13 +414,32 @@ while ($true) {
 
     $batches = Split-FileBatches -Files $files -PayloadTemplate $payloadTemplate -MaxPayloadBytes $maxPayloadBytes
     $totalChunks = $batches.Count
+    $syncedChunks = 0
 
     Write-Host "[$(Get-Date -Format o)] Changes detected. Sending $totalChunks chunk(s)..."
 
     for ($i = 0; $i -lt $totalChunks; $i++) {
       $payload = $payloadTemplate.Clone()
       $batchFiles = @($batches[$i])
-      $payload.Files = $batchFiles
+      $wireFiles = @()
+
+      foreach ($batchFile in $batchFiles) {
+        $wireEntry = Convert-ToWireFileEntry -Entry $batchFile
+        if ($wireEntry) {
+          $wireFiles += ,$wireEntry
+        }
+      }
+
+      if ($wireFiles.Count -eq 0) {
+        Write-Host "[$(Get-Date -Format o)] Warning: skipped chunk $($i + 1)/$totalChunks because all entries are invalid for JSON payload."
+        continue
+      }
+
+      if ($wireFiles.Count -lt $batchFiles.Count) {
+        Write-Host "[$(Get-Date -Format o)] Warning: sanitized chunk $($i + 1)/$totalChunks. Removed $($batchFiles.Count - $wireFiles.Count) invalid file entr(y/ies)."
+      }
+
+      $payload.Files = $wireFiles
 
       if ($totalChunks -gt 1) {
         $payload.ChunkIndex = $i + 1
@@ -367,7 +448,14 @@ while ($true) {
 
       $json = $payload | ConvertTo-Json -Depth 6 -Compress
       Invoke-SyncRequest -Uri $syncUrl -Headers $headers -Body $json -TimeoutSec $requestTimeoutSeconds -RetryCount $retryCount -RetryDelaySeconds $retryDelaySeconds -DisableKeepAlive $disableKeepAlive
-      Write-Host "[$(Get-Date -Format o)] Synced chunk $($i + 1)/$totalChunks, files: $($batchFiles.Count)"
+      Write-Host "[$(Get-Date -Format o)] Synced chunk $($i + 1)/$totalChunks, files: $($wireFiles.Count)"
+      $syncedChunks++
+    }
+
+    if ($syncedChunks -eq 0 -and $files.Count -gt 0) {
+      Write-Host "[$(Get-Date -Format o)] Warning: no chunks were synced because all files were filtered as invalid payload entries."
+      Start-Sleep -Seconds $scanIntervalSeconds
+      continue
     }
 
     $lastHash = $snapshotHash

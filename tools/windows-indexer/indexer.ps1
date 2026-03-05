@@ -431,6 +431,11 @@ if (Test-IsLoopbackUrl -Url $serverUrl) {
   Write-Host "[$(Get-Date -Format o)] If this indexer runs on another machine, localhost points to that machine itself, not to your production server."
 }
 
+if (Test-IsLoopbackUrl -Url $serverUrl) {
+  Write-Host "[$(Get-Date -Format o)] Warning: serverUrl points to localhost/loopback."
+  Write-Host "[$(Get-Date -Format o)] If this indexer runs on another machine, localhost points to that machine itself, not to your production server."
+}
+
 $lastHash = Read-IndexerState -StatePath $statePath
 
 if ($lastHash) {

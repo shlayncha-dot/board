@@ -73,6 +73,28 @@ function Write-IndexerState([string]$StatePath, [string]$SnapshotHash) {
   Set-Content -LiteralPath $StatePath -Value $json -Encoding UTF8
 }
 
+function Convert-ToIndexEntry([System.IO.FileInfo]$File, [string]$ScanRoot) {
+  if (-not $File) {
+    return $null
+  }
+
+  $fileName = [string]$File.Name
+  $relativePath = [string](Get-RelativePath -BasePath $ScanRoot -TargetPath $File.FullName)
+  $extension = [string]$File.Extension
+
+  if ([string]::IsNullOrWhiteSpace($fileName) -or [string]::IsNullOrWhiteSpace($relativePath)) {
+    return $null
+  }
+
+  [pscustomobject]@{
+    FileName = $fileName
+    RelativePath = $relativePath
+    Extension = $extension.ToLowerInvariant()
+    LastWriteTimeUtc = $File.LastWriteTimeUtc.ToString("o")
+    SizeBytes = [int64]$File.Length
+  }
+}
+
 function Split-FileBatches([array]$Files, [hashtable]$PayloadTemplate, [int]$MaxPayloadBytes) {
   if ($Files.Count -eq 0) {
     return @(@())
@@ -292,22 +314,26 @@ while ($true) {
   try {
     Write-Host "[$(Get-Date -Format o)] Scan started..."
 
+    $invalidEntries = 0
     $files = @(Get-ChildItem -LiteralPath $scanRoot -File -Recurse -ErrorAction SilentlyContinue |
       Where-Object {
         $fullPath = $_.FullName.ToLowerInvariant()
         -not $excludedPaths.ContainsKey($fullPath)
       } |
       ForEach-Object {
-        [pscustomobject]@{
-          FileName = $_.Name
-          RelativePath = (Get-RelativePath -BasePath $scanRoot -TargetPath $_.FullName)
-          Extension = $_.Extension.ToLowerInvariant()
-          LastWriteTimeUtc = $_.LastWriteTimeUtc.ToString("o")
-          SizeBytes = [int64]$_.Length
+        $entry = Convert-ToIndexEntry -File $_ -ScanRoot $scanRoot
+        if (-not $entry) {
+          $invalidEntries++
         }
-      })
+
+        $entry
+      } |
+      Where-Object { $null -ne $_ })
 
     Write-Host "[$(Get-Date -Format o)] Files discovered: $($files.Count)"
+    if ($invalidEntries -gt 0) {
+      Write-Host "[$(Get-Date -Format o)] Warning: skipped invalid file entries: $invalidEntries"
+    }
 
     $snapshotHash = Get-SnapshotHash -Files $files
 

@@ -5,6 +5,7 @@
 - `tools/windows-indexer/run-indexer.bat` — запуск скрипта.
 - `tools/windows-indexer/install-autostart-task.bat` — добавление автозапуска через Планировщик задач.
 - `tools/windows-indexer/config.json.example` — пример конфигурации.
+- `run-indexer.bat` (в корне репозитория) — удобный ярлык-обёртка для запуска `tools/windows-indexer/run-indexer.bat`.
 
 ## Настройка
 1. Скопируйте папку `tools/windows-indexer` на удаленный Windows-ПК.
@@ -26,7 +27,7 @@
 ## Запуск вручную
 1. Откройте `cmd` от имени пользователя, под которым должен работать процесс.
 2. Выполните:
-   - `run-indexer.bat`
+   - `run-indexer.bat` (из `cmd`)
 
 Если запускаете из **PowerShell**, используйте:
 - `./run-indexer.bat` (или `\.\run-indexer.bat` в Windows-нотации)

@@ -3,5 +3,11 @@
   "syncEndpoint": "/api/file-index/sync",
   "scanRoot": ".",
   "scanIntervalSeconds": 30,
-  "machineId": "PC-REMOTE-01"
+  "machineId": "PC-REMOTE-01",
+  "maxFilesPerChunk": 1000,
+  "auth": {
+    "type": "basic",
+    "username": "sd",
+    "password": "sd"
+  }
 }

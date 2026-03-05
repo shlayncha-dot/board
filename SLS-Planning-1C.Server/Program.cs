@@ -10,6 +10,16 @@ using SLS_Planning_1C.Server.Features.SpecificationUpload;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Allow larger JSON payloads for file-index sync snapshots.
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 100_000_000;
+});
+builder.Services.Configure<IISServerOptions>(options =>
+{
+    options.MaxRequestBodySize = 100_000_000;
+});
+
 // Add services to the container.
 
 builder.Services.AddControllers().AddJsonOptions(options =>

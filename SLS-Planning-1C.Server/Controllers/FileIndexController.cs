@@ -17,6 +17,18 @@ public sealed class FileIndexController : ControllerBase
     [HttpPost("sync")]
     public ActionResult<FileIndexSyncResponse> Sync([FromBody] FileIndexSyncRequest request)
     {
+        var totalChunks = request.TotalChunks.GetValueOrDefault(1);
+        var chunkIndex = request.ChunkIndex.GetValueOrDefault(0);
+        if (totalChunks < 1)
+        {
+            return BadRequest("TotalChunks должен быть >= 1.");
+        }
+
+        if (chunkIndex < 0 || chunkIndex >= totalChunks)
+        {
+            return BadRequest("ChunkIndex должен быть в диапазоне [0..TotalChunks-1].");
+        }
+
         if (request.Files.Any(f => !IsSupportedExtension(f.Extension)))
         {
             return BadRequest("Разрешены только .pdf и .dxf файлы.");

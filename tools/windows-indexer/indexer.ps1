@@ -82,13 +82,13 @@ function Split-FileBatches([array]$Files, [hashtable]$PayloadTemplate, [int]$Max
   $current = @()
 
   foreach ($file in $Files) {
-    $candidate = $current + $file
+    $candidate = @($current + $file)
     $payload = $PayloadTemplate.Clone()
-    $payload.Files = $candidate
+    $payload.Files = @($candidate)
     $size = [System.Text.Encoding]::UTF8.GetByteCount(($payload | ConvertTo-Json -Depth 6 -Compress))
 
     if ($size -gt $MaxPayloadBytes -and $current.Count -gt 0) {
-      $batches += ,$current
+      $batches += ,@($current)
       $current = @($file)
     }
     else {
@@ -97,10 +97,45 @@ function Split-FileBatches([array]$Files, [hashtable]$PayloadTemplate, [int]$Max
   }
 
   if ($current.Count -gt 0) {
-    $batches += ,$current
+    $batches += ,@($current)
   }
 
   return $batches
+}
+
+function Get-HttpErrorDetails([System.Management.Automation.ErrorRecord]$ErrorRecord) {
+  if (-not $ErrorRecord -or -not $ErrorRecord.Exception) {
+    return $null
+  }
+
+  $response = $ErrorRecord.Exception.Response
+  if (-not $response) {
+    return $null
+  }
+
+  try {
+    $stream = $response.GetResponseStream()
+    if (-not $stream) {
+      return $null
+    }
+
+    $reader = [System.IO.StreamReader]::new($stream)
+    try {
+      $body = $reader.ReadToEnd()
+      if ([string]::IsNullOrWhiteSpace($body)) {
+        return $null
+      }
+
+      return $body
+    }
+    finally {
+      $reader.Dispose()
+      $stream.Dispose()
+    }
+  }
+  catch {
+    return $null
+  }
 }
 
 function Test-IsTransientSendError([System.Management.Automation.ErrorRecord]$ErrorRecord) {
@@ -271,7 +306,7 @@ while ($true) {
 
     for ($i = 0; $i -lt $totalChunks; $i++) {
       $payload = $payloadTemplate.Clone()
-      $payload.Files = $batches[$i]
+      $payload.Files = @($batches[$i])
 
       if ($totalChunks -gt 1) {
         $payload.ChunkIndex = $i + 1
@@ -291,6 +326,10 @@ while ($true) {
     if ($err.Exception.Response -and $err.Exception.Response.StatusCode) {
       $statusCode = [int]$err.Exception.Response.StatusCode
       Write-Host "[$(Get-Date -Format o)] Error: Remote server returned an error: ($statusCode) $($err.Exception.Response.StatusDescription)."
+      $errorDetails = Get-HttpErrorDetails -ErrorRecord $err
+      if ($errorDetails) {
+        Write-Host "[$(Get-Date -Format o)] Server response body: $errorDetails"
+      }
     }
     else {
       Write-Host "[$(Get-Date -Format o)] Error: $($err.Exception.Message)"

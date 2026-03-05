@@ -305,6 +305,23 @@ function Invoke-SyncRequest(
   }
 }
 
+
+function Should-WriteCycleLog([bool]$EmitCycleLogs) {
+  return $EmitCycleLogs
+}
+
+function Test-IsIncludedExtension([string]$Extension, [hashtable]$AllowedExtensions) {
+  if (-not $AllowedExtensions -or $AllowedExtensions.Count -eq 0) {
+    return $true
+  }
+
+  if ([string]::IsNullOrWhiteSpace($Extension)) {
+    return $false
+  }
+
+  return $AllowedExtensions.ContainsKey($Extension.ToLowerInvariant())
+}
+
 function Test-IsLoopbackUrl([string]$Url) {
   if ([string]::IsNullOrWhiteSpace($Url)) {
     return $false
@@ -353,6 +370,27 @@ $requestTimeoutSeconds = if ($null -ne $config.requestTimeoutSeconds) { [int]$co
 $retryCount = if ($null -ne $config.retryCount) { [int]$config.retryCount } else { 3 }
 $retryDelaySeconds = if ($null -ne $config.retryDelaySeconds) { [int]$config.retryDelaySeconds } else { 3 }
 $disableKeepAlive = if ($null -ne $config.disableKeepAlive) { [bool]$config.disableKeepAlive } else { $true }
+$emitCycleLogs = if ($null -ne $config.emitCycleLogs) { [bool]$config.emitCycleLogs } else { $true }
+
+$allowedExtensions = @{}
+if ($config.PSObject.Properties.Name -contains 'includeExtensions' -and $config.includeExtensions) {
+  foreach ($rawExtension in @($config.includeExtensions)) {
+    if ($null -eq $rawExtension) {
+      continue
+    }
+
+    $extension = ([string]$rawExtension).Trim()
+    if ([string]::IsNullOrWhiteSpace($extension)) {
+      continue
+    }
+
+    if (-not $extension.StartsWith('.')) {
+      $extension = "." + $extension
+    }
+
+    $allowedExtensions[$extension.ToLowerInvariant()] = $true
+  }
+}
 
 $headers = @{}
 $authConfig = if ($config.PSObject.Properties.Name -contains 'auth') { $config.auth } else { $null }
@@ -383,6 +421,15 @@ Write-Host "Retry delay: $retryDelaySeconds sec"
 Write-Host "Disable keep-alive: $disableKeepAlive"
 Write-Host "State file: $statePath"
 Write-Host "Excluded files from scan: $($excludedPaths.Keys.Count)"
+Write-Host "Emit cycle logs: $emitCycleLogs"
+if ($allowedExtensions.Count -gt 0) {
+  Write-Host "Included extensions filter: $($allowedExtensions.Keys -join ", ")"
+}
+
+if (Test-IsLoopbackUrl -Url $serverUrl) {
+  Write-Host "[$(Get-Date -Format o)] Warning: serverUrl points to localhost/loopback."
+  Write-Host "[$(Get-Date -Format o)] If this indexer runs on another machine, localhost points to that machine itself, not to your production server."
+}
 
 if (Test-IsLoopbackUrl -Url $serverUrl) {
   Write-Host "[$(Get-Date -Format o)] Warning: serverUrl points to localhost/loopback."
@@ -397,13 +444,19 @@ if ($lastHash) {
 
 while ($true) {
   try {
-    Write-Host "[$(Get-Date -Format o)] Scan started..."
+    if (Should-WriteCycleLog -EmitCycleLogs $emitCycleLogs) {
+      Write-Host "[$(Get-Date -Format o)] Scan started..."
+    }
 
     $invalidEntries = 0
     $files = @(Get-ChildItem -LiteralPath $scanRoot -File -Recurse -ErrorAction SilentlyContinue |
       Where-Object {
         $fullPath = $_.FullName.ToLowerInvariant()
-        -not $excludedPaths.ContainsKey($fullPath)
+        if ($excludedPaths.ContainsKey($fullPath)) {
+          return $false
+        }
+
+        return Test-IsIncludedExtension -Extension $_.Extension -AllowedExtensions $allowedExtensions
       } |
       ForEach-Object {
         $entry = Convert-ToIndexEntry -File $_ -ScanRoot $scanRoot
@@ -427,7 +480,9 @@ while ($true) {
       }
     }
 
-    Write-Host "[$(Get-Date -Format o)] Files discovered: $($files.Count)"
+    if (Should-WriteCycleLog -EmitCycleLogs $emitCycleLogs) {
+      Write-Host "[$(Get-Date -Format o)] Files discovered: $($files.Count)"
+    }
     if ($invalidEntries -gt 0) {
       Write-Host "[$(Get-Date -Format o)] Warning: skipped invalid file entries: $invalidEntries"
     }
@@ -444,7 +499,9 @@ while ($true) {
     $snapshotHash = Get-SnapshotHash -Files $wireFiles
 
     if ($snapshotHash -eq $lastHash) {
-      Write-Host "[$(Get-Date -Format o)] No changes detected. Sleeping for $scanIntervalSeconds sec."
+      if (Should-WriteCycleLog -EmitCycleLogs $emitCycleLogs) {
+        Write-Host "[$(Get-Date -Format o)] No changes detected. Sleeping for $scanIntervalSeconds sec."
+      }
       Start-Sleep -Seconds $scanIntervalSeconds
       continue
     }
@@ -460,7 +517,9 @@ while ($true) {
     $totalChunks = $batches.Count
     $syncedChunks = 0
 
-    Write-Host "[$(Get-Date -Format o)] Changes detected. Sending $totalChunks chunk(s)..."
+    if (Should-WriteCycleLog -EmitCycleLogs $emitCycleLogs) {
+      Write-Host "[$(Get-Date -Format o)] Changes detected. Sending $totalChunks chunk(s)..."
+    }
 
     for ($i = 0; $i -lt $totalChunks; $i++) {
       $payload = $payloadTemplate.Clone()
@@ -474,7 +533,9 @@ while ($true) {
 
       $json = $payload | ConvertTo-Json -Depth 6 -Compress
       Invoke-SyncRequest -Uri $syncUrl -Headers $headers -Body $json -TimeoutSec $requestTimeoutSeconds -RetryCount $retryCount -RetryDelaySeconds $retryDelaySeconds -DisableKeepAlive $disableKeepAlive
-      Write-Host "[$(Get-Date -Format o)] Synced chunk $($i + 1)/$totalChunks, files: $($chunkFiles.Count)"
+      if (Should-WriteCycleLog -EmitCycleLogs $emitCycleLogs) {
+        Write-Host "[$(Get-Date -Format o)] Synced chunk $($i + 1)/$totalChunks, files: $($chunkFiles.Count)"
+      }
       $syncedChunks++
     }
 

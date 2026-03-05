@@ -8,5 +8,7 @@
   "requestTimeoutSeconds": 30,
   "retryCount": 3,
   "retryDelaySeconds": 3,
-  "disableKeepAlive": true
+  "disableKeepAlive": true,
+  "emitCycleLogs": true,
+  "includeExtensions": [".pdf", ".dxf"]
 }

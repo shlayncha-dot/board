@@ -18,6 +18,8 @@
    - `maxPayloadBytes` (опционально): максимальный размер одного JSON-запроса к `/api/file-index/sync`. По умолчанию `800000` (~0.8 MB).
    - `requestTimeoutSeconds` (опционально): таймаут HTTP-запроса. По умолчанию `30`.
    - `auth` (опционально): нужен **только** если ваш прокси/сервер требует HTTP-авторизацию.
+   - `emitCycleLogs` (опционально): `true/false`, выводить ли сообщения каждого цикла (`Scan started`, `No changes`, `Synced chunk`). По умолчанию `true`.
+   - `includeExtensions` (опционально): список расширений для индексации, например `[".pdf", ".dxf"]`. Если не задан — сканируются все файлы.
 
 ## Запуск вручную
 1. Откройте `cmd` от имени пользователя, под которым должен работать процесс.
@@ -39,7 +41,9 @@
   "scanIntervalSeconds": 30,
   "machineId": "PC-REMOTE-01",
   "maxPayloadBytes": 800000,
-  "requestTimeoutSeconds": 30
+  "requestTimeoutSeconds": 30,
+  "emitCycleLogs": false,
+  "includeExtensions": [".pdf", ".dxf"]
 }
 ```
 
@@ -80,7 +84,7 @@
 
 
 ## Как работает синхронизация
-- Индексатор сканирует **все файлы** в `scanRoot` рекурсивно (не только PDF/DXF).
+- Индексатор сканирует файлы в `scanRoot` рекурсивно; при `includeExtensions` — только нужные расширения (например PDF/DXF), без фильтра — все файлы.
 - Для каждого файла отправляются: `FileName`, `RelativePath`, `Extension`, `LastWriteTimeUtc`, `SizeBytes`.
 - Вычисляется `SnapshotHash` по полному списку файлов.
 - Если хэш не изменился относительно предыдущего успешного цикла — отправка не выполняется.

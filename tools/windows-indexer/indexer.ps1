@@ -6,6 +6,16 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+if ([enum]::IsDefined([System.Net.SecurityProtocolType], 'Tls12')) {
+  [System.Net.ServicePointManager]::SecurityProtocol =
+    [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
+}
+
+if ([enum]::IsDefined([System.Net.SecurityProtocolType], 'Tls13')) {
+  [System.Net.ServicePointManager]::SecurityProtocol =
+    [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls13
+}
+
 function Get-RelativePath([string]$BasePath, [string]$TargetPath) {
   $baseUri = [Uri]((Resolve-Path $BasePath).Path.TrimEnd('\\') + "\\")
   $targetUri = [Uri](Resolve-Path $TargetPath).Path
@@ -59,6 +69,73 @@ function Split-FileBatches([array]$Files, [hashtable]$PayloadTemplate, [int]$Max
   return $batches
 }
 
+function Test-IsTransientSendError([System.Management.Automation.ErrorRecord]$ErrorRecord) {
+  if (-not $ErrorRecord -or -not $ErrorRecord.Exception) {
+    return $false
+  }
+
+  $messages = @()
+  $exception = $ErrorRecord.Exception
+
+  while ($exception) {
+    if ($exception.Message) {
+      $messages += $exception.Message
+    }
+
+    if ($exception -is [System.Net.WebException] -and $exception.Status -eq [System.Net.WebExceptionStatus]::ConnectionClosed) {
+      return $true
+    }
+
+    $exception = $exception.InnerException
+  }
+
+  $combined = ($messages -join ' | ').ToLowerInvariant()
+  return $combined.Contains('базовое соединение закрыто') -or
+    $combined.Contains('underlying connection was closed') -or
+    $combined.Contains('unexpected error on send')
+}
+
+function Invoke-SyncRequest(
+  [string]$Uri,
+  [hashtable]$Headers,
+  [string]$Body,
+  [int]$TimeoutSec,
+  [int]$RetryCount,
+  [int]$RetryDelaySeconds,
+  [bool]$DisableKeepAlive
+) {
+  for ($attempt = 1; $attempt -le $RetryCount; $attempt++) {
+    try {
+      $requestParams = @{
+        Uri = $Uri
+        Method = 'Post'
+        ContentType = 'application/json'
+        Headers = $Headers
+        Body = $Body
+        TimeoutSec = $TimeoutSec
+      }
+
+      if ($DisableKeepAlive) {
+        $requestParams.DisableKeepAlive = $true
+      }
+
+      Invoke-RestMethod @requestParams | Out-Null
+      return
+    }
+    catch {
+      $isLastAttempt = $attempt -eq $RetryCount
+      $isTransient = Test-IsTransientSendError -ErrorRecord $_
+
+      if ($isLastAttempt -or -not $isTransient) {
+        throw
+      }
+
+      Write-Host "[$(Get-Date -Format o)] Warning: transient send error on attempt $attempt/$RetryCount. Retrying in $RetryDelaySeconds sec..."
+      Start-Sleep -Seconds $RetryDelaySeconds
+    }
+  }
+}
+
 if (-not (Test-Path -LiteralPath $ConfigPath)) {
   throw "Config not found: $ConfigPath"
 }
@@ -82,6 +159,9 @@ $syncUrl = "$serverUrl$syncEndpoint"
 $scanIntervalSeconds = if ($null -ne $config.scanIntervalSeconds) { [int]$config.scanIntervalSeconds } else { 30 }
 $maxPayloadBytes = if ($null -ne $config.maxPayloadBytes) { [int]$config.maxPayloadBytes } else { 800000 }
 $requestTimeoutSeconds = if ($null -ne $config.requestTimeoutSeconds) { [int]$config.requestTimeoutSeconds } else { 30 }
+$retryCount = if ($null -ne $config.retryCount) { [int]$config.retryCount } else { 3 }
+$retryDelaySeconds = if ($null -ne $config.retryDelaySeconds) { [int]$config.retryDelaySeconds } else { 3 }
+$disableKeepAlive = if ($null -ne $config.disableKeepAlive) { [bool]$config.disableKeepAlive } else { $true }
 
 $headers = @{}
 $authConfig = if ($config.PSObject.Properties.Name -contains 'auth') { $config.auth } else { $null }
@@ -107,6 +187,9 @@ Write-Host "Sync URL: $syncUrl"
 Write-Host "Scan interval: $scanIntervalSeconds sec"
 Write-Host "Max payload bytes: $maxPayloadBytes"
 Write-Host "Request timeout: $requestTimeoutSeconds sec"
+Write-Host "Retry count: $retryCount"
+Write-Host "Retry delay: $retryDelaySeconds sec"
+Write-Host "Disable keep-alive: $disableKeepAlive"
 
 $lastHash = $null
 
@@ -158,7 +241,7 @@ while ($true) {
       }
 
       $json = $payload | ConvertTo-Json -Depth 6 -Compress
-      Invoke-RestMethod -Uri $syncUrl -Method Post -ContentType 'application/json' -Headers $headers -Body $json -TimeoutSec $requestTimeoutSeconds | Out-Null
+      Invoke-SyncRequest -Uri $syncUrl -Headers $headers -Body $json -TimeoutSec $requestTimeoutSeconds -RetryCount $retryCount -RetryDelaySeconds $retryDelaySeconds -DisableKeepAlive $disableKeepAlive
       Write-Host "[$(Get-Date -Format o)] Synced chunk $($i + 1)/$totalChunks, files: $($batches[$i].Count)"
     }
 

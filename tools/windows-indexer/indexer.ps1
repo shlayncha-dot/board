@@ -39,6 +39,40 @@ function Get-SnapshotHash([array]$Files) {
   }
 }
 
+function Read-IndexerState([string]$StatePath) {
+  if (-not (Test-Path -LiteralPath $StatePath)) {
+    return $null
+  }
+
+  try {
+    $raw = Get-Content -LiteralPath $StatePath -Raw -Encoding UTF8
+    if ([string]::IsNullOrWhiteSpace($raw)) {
+      return $null
+    }
+
+    $state = $raw | ConvertFrom-Json
+    if ($state -and $state.PSObject.Properties.Name -contains 'LastSnapshotHash') {
+      return [string]$state.LastSnapshotHash
+    }
+
+    return $null
+  }
+  catch {
+    Write-Host "[$(Get-Date -Format o)] Warning: failed to read state file '$StatePath'."
+    return $null
+  }
+}
+
+function Write-IndexerState([string]$StatePath, [string]$SnapshotHash) {
+  $state = @{
+    LastSnapshotHash = $SnapshotHash
+    UpdatedAtUtc = (Get-Date).ToUniversalTime().ToString('o')
+  }
+
+  $json = $state | ConvertTo-Json -Depth 3
+  Set-Content -LiteralPath $StatePath -Value $json -Encoding UTF8
+}
+
 function Split-FileBatches([array]$Files, [hashtable]$PayloadTemplate, [int]$MaxPayloadBytes) {
   if ($Files.Count -eq 0) {
     return @(@())
@@ -148,6 +182,7 @@ if (-not $config.scanRoot) { throw "Config 'scanRoot' is required." }
 if (-not $config.machineId) { throw "Config 'machineId' is required." }
 
 $scriptDir = Split-Path -Parent (Resolve-Path $PSCommandPath)
+$statePath = Join-Path $scriptDir ".indexer-state.json"
 $scanRoot = if ([System.IO.Path]::IsPathRooted([string]$config.scanRoot)) { [string]$config.scanRoot } else { Join-Path $scriptDir ([string]$config.scanRoot) }
 $scanRoot = (Resolve-Path $scanRoot).Path
 
@@ -189,15 +224,19 @@ Write-Host "Request timeout: $requestTimeoutSeconds sec"
 Write-Host "Retry count: $retryCount"
 Write-Host "Retry delay: $retryDelaySeconds sec"
 Write-Host "Disable keep-alive: $disableKeepAlive"
+Write-Host "State file: $statePath"
 
-$lastHash = $null
+$lastHash = Read-IndexerState -StatePath $statePath
+
+if ($lastHash) {
+  Write-Host "[$(Get-Date -Format o)] Loaded last snapshot hash from state file."
+}
 
 while ($true) {
   try {
     Write-Host "[$(Get-Date -Format o)] Scan started..."
 
     $files = Get-ChildItem -LiteralPath $scanRoot -File -Recurse -ErrorAction SilentlyContinue |
-      Where-Object { $_.Extension -in @('.pdf', '.dxf') } |
       ForEach-Object {
         [pscustomobject]@{
           FileName = $_.Name
@@ -245,6 +284,7 @@ while ($true) {
     }
 
     $lastHash = $snapshotHash
+    Write-IndexerState -StatePath $statePath -SnapshotHash $snapshotHash
   }
   catch {
     $err = $_

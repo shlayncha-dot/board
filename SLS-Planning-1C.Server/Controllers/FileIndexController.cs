@@ -17,11 +17,6 @@ public sealed class FileIndexController : ControllerBase
     [HttpPost("sync")]
     public ActionResult<FileIndexSyncResponse> Sync([FromBody] FileIndexSyncRequest request)
     {
-        if (request.Files.Any(f => !IsSupportedExtension(f.Extension)))
-        {
-            return BadRequest("Разрешены только .pdf и .dxf файлы.");
-        }
-
         try
         {
             var result = _fileIndexStore.UpsertSnapshot(request);
@@ -31,11 +26,5 @@ public sealed class FileIndexController : ControllerBase
         {
             return BadRequest(ex.Message);
         }
-    }
-
-    private static bool IsSupportedExtension(string extension)
-    {
-        return string.Equals(extension, ".pdf", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(extension, ".dxf", StringComparison.OrdinalIgnoreCase);
     }
 }

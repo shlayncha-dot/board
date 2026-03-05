@@ -51,11 +51,30 @@ function Read-IndexerState([string]$StatePath) {
     }
 
     $state = $raw | ConvertFrom-Json
-    if ($state -and $state.PSObject.Properties.Name -contains 'LastSnapshotHash') {
-      return [string]$state.LastSnapshotHash
+    if (-not $state) {
+      return $null
     }
 
-    return $null
+    $lastSnapshotHash = if ($state.PSObject.Properties.Name -contains 'LastSnapshotHash') { [string]$state.LastSnapshotHash } else { $null }
+    $fileIndex = @{}
+
+    if ($state.PSObject.Properties.Name -contains 'Files' -and $state.Files) {
+      foreach ($entry in @($state.Files)) {
+        if (-not $entry) { continue }
+
+        $wireEntry = Convert-ToWireFileEntry -Entry $entry
+        if (-not $wireEntry) { continue }
+
+        $relativePath = [string]$wireEntry.RelativePath
+        if ([string]::IsNullOrWhiteSpace($relativePath)) { continue }
+        $fileIndex[$relativePath.ToLowerInvariant()] = $wireEntry
+      }
+    }
+
+    return [pscustomobject]@{
+      LastSnapshotHash = $lastSnapshotHash
+      Files = $fileIndex
+    }
   }
   catch {
     Write-Host "[$(Get-Date -Format o)] Warning: failed to read state file '$StatePath'."
@@ -63,14 +82,85 @@ function Read-IndexerState([string]$StatePath) {
   }
 }
 
-function Write-IndexerState([string]$StatePath, [string]$SnapshotHash) {
-  $state = @{
+function Write-IndexerState([string]$StatePath, [string]$SnapshotHash, [array]$Files) {
+  $state = [ordered]@{
     LastSnapshotHash = $SnapshotHash
     UpdatedAtUtc = (Get-Date).ToUniversalTime().ToString('o')
+    Files = @($Files)
   }
 
-  $json = $state | ConvertTo-Json -Depth 3
+  $json = $state | ConvertTo-Json -Depth 8
   Set-Content -LiteralPath $StatePath -Value $json -Encoding UTF8
+}
+
+function Get-EntryFingerprint([object]$Entry) {
+  if (-not $Entry) {
+    return ''
+  }
+
+  $relativePath = Convert-ToSafeString $Entry.RelativePath
+  $extension = Convert-ToSafeString $Entry.Extension
+  $lastWriteTimeUtc = Convert-ToSafeString $Entry.LastWriteTimeUtc
+
+  $sizeBytes = 0L
+  try {
+    $sizeBytes = [int64]$Entry.SizeBytes
+  }
+  catch {
+    return ''
+  }
+
+  return "{0}|{1}|{2}|{3}" -f $relativePath, $sizeBytes, $extension, $lastWriteTimeUtc
+}
+
+function Build-DeltaPayload(
+  [string]$MachineId,
+  [string]$RootPath,
+  [string]$BaseSnapshotHash,
+  [string]$NewSnapshotHash,
+  [hashtable]$PreviousFilesByPath,
+  [array]$CurrentWireFiles
+) {
+  $currentByPath = @{}
+  foreach ($file in $CurrentWireFiles) {
+    if (-not $file) { continue }
+
+    $relativePath = Convert-ToSafeString $file.RelativePath
+    if ([string]::IsNullOrWhiteSpace($relativePath)) { continue }
+    $currentByPath[$relativePath.ToLowerInvariant()] = $file
+  }
+
+  $addedOrUpdated = @()
+  foreach ($kv in $currentByPath.GetEnumerator()) {
+    $key = $kv.Key
+    $current = $kv.Value
+
+    if (-not $PreviousFilesByPath.ContainsKey($key)) {
+      $addedOrUpdated += ,$current
+      continue
+    }
+
+    $previous = $PreviousFilesByPath[$key]
+    if ((Get-EntryFingerprint -Entry $current) -ne (Get-EntryFingerprint -Entry $previous)) {
+      $addedOrUpdated += ,$current
+    }
+  }
+
+  $deleted = @()
+  foreach ($kv in $PreviousFilesByPath.GetEnumerator()) {
+    if (-not $currentByPath.ContainsKey($kv.Key)) {
+      $deleted += ,[string]$kv.Value.RelativePath
+    }
+  }
+
+  return [ordered]@{
+    MachineId = $MachineId
+    RootPath = $RootPath
+    BaseSnapshotHash = $BaseSnapshotHash
+    NewSnapshotHash = $NewSnapshotHash
+    AddedOrUpdatedFiles = @($addedOrUpdated)
+    DeletedRelativePaths = @($deleted)
+  }
 }
 
 function Convert-ToIndexEntry([System.IO.FileInfo]$File, [string]$ScanRoot) {
@@ -363,6 +453,8 @@ $excludedPaths[$statePath.ToLowerInvariant()] = $true
 $serverUrl = ([string]$config.serverUrl).TrimEnd('/')
 $syncEndpoint = if ([string]$config.syncEndpoint -like '/*') { [string]$config.syncEndpoint } else { "/$($config.syncEndpoint)" }
 $syncUrl = "$serverUrl$syncEndpoint"
+$syncDeltaEndpoint = if ($config.PSObject.Properties.Name -contains 'syncDeltaEndpoint' -and $config.syncDeltaEndpoint) { if ([string]$config.syncDeltaEndpoint -like '/*') { [string]$config.syncDeltaEndpoint } else { "/$($config.syncDeltaEndpoint)" } } else { "/api/file-index/sync-delta" }
+$syncDeltaUrl = "$serverUrl$syncDeltaEndpoint"
 
 $scanIntervalSeconds = if ($null -ne $config.scanIntervalSeconds) { [int]$config.scanIntervalSeconds } else { 30 }
 $maxPayloadBytes = if ($null -ne $config.maxPayloadBytes) { [int]$config.maxPayloadBytes } else { 800000 }
@@ -371,6 +463,7 @@ $retryCount = if ($null -ne $config.retryCount) { [int]$config.retryCount } else
 $retryDelaySeconds = if ($null -ne $config.retryDelaySeconds) { [int]$config.retryDelaySeconds } else { 3 }
 $disableKeepAlive = if ($null -ne $config.disableKeepAlive) { [bool]$config.disableKeepAlive } else { $true }
 $emitCycleLogs = if ($null -ne $config.emitCycleLogs) { [bool]$config.emitCycleLogs } else { $true }
+$enableDeltaSync = if ($null -ne $config.enableDeltaSync) { [bool]$config.enableDeltaSync } else { $true }
 
 $allowedExtensions = @{}
 if ($config.PSObject.Properties.Name -contains 'includeExtensions' -and $config.includeExtensions) {
@@ -413,6 +506,7 @@ if ($username -and $password) {
 
 Write-Host "Indexer started. Scan root: $scanRoot"
 Write-Host "Sync URL: $syncUrl"
+Write-Host "Delta sync URL: $syncDeltaUrl"
 Write-Host "Scan interval: $scanIntervalSeconds sec"
 Write-Host "Max payload bytes: $maxPayloadBytes"
 Write-Host "Request timeout: $requestTimeoutSeconds sec"
@@ -422,6 +516,7 @@ Write-Host "Disable keep-alive: $disableKeepAlive"
 Write-Host "State file: $statePath"
 Write-Host "Excluded files from scan: $($excludedPaths.Keys.Count)"
 Write-Host "Emit cycle logs: $emitCycleLogs"
+Write-Host "Enable delta sync: $enableDeltaSync"
 if ($allowedExtensions.Count -gt 0) {
   Write-Host "Included extensions filter: $($allowedExtensions.Keys -join ", ")"
 }
@@ -431,12 +526,9 @@ if (Test-IsLoopbackUrl -Url $serverUrl) {
   Write-Host "[$(Get-Date -Format o)] If this indexer runs on another machine, localhost points to that machine itself, not to your production server."
 }
 
-if (Test-IsLoopbackUrl -Url $serverUrl) {
-  Write-Host "[$(Get-Date -Format o)] Warning: serverUrl points to localhost/loopback."
-  Write-Host "[$(Get-Date -Format o)] If this indexer runs on another machine, localhost points to that machine itself, not to your production server."
-}
-
-$lastHash = Read-IndexerState -StatePath $statePath
+$state = Read-IndexerState -StatePath $statePath
+$lastHash = if ($state) { [string]$state.LastSnapshotHash } else { $null }
+$lastFilesByPath = if ($state -and $state.Files) { $state.Files } else { @{} }
 
 if ($lastHash) {
   Write-Host "[$(Get-Date -Format o)] Loaded last snapshot hash from state file."
@@ -506,47 +598,77 @@ while ($true) {
       continue
     }
 
-    $payloadTemplate = @{
-      MachineId = [string]$config.machineId
-      RootPath = $scanRoot
-      SnapshotHash = $snapshotHash
-      Files = @()
+    $canUseDelta = $enableDeltaSync -and -not [string]::IsNullOrWhiteSpace($lastHash) -and $lastFilesByPath.Count -ge 0
+    $deltaSent = $false
+
+    if ($canUseDelta) {
+      $deltaPayload = Build-DeltaPayload -MachineId ([string]$config.machineId) -RootPath $scanRoot -BaseSnapshotHash $lastHash -NewSnapshotHash $snapshotHash -PreviousFilesByPath $lastFilesByPath -CurrentWireFiles $wireFiles
+      $deltaJson = $deltaPayload | ConvertTo-Json -Depth 8 -Compress
+      $deltaBytes = [System.Text.Encoding]::UTF8.GetByteCount($deltaJson)
+
+      if ($deltaBytes -le $maxPayloadBytes) {
+        if (Should-WriteCycleLog -EmitCycleLogs $emitCycleLogs) {
+          Write-Host "[$(Get-Date -Format o)] Changes detected. Sending delta (added/updated: $($deltaPayload.AddedOrUpdatedFiles.Count), deleted: $($deltaPayload.DeletedRelativePaths.Count))."
+        }
+
+        Invoke-SyncRequest -Uri $syncDeltaUrl -Headers $headers -Body $deltaJson -TimeoutSec $requestTimeoutSeconds -RetryCount $retryCount -RetryDelaySeconds $retryDelaySeconds -DisableKeepAlive $disableKeepAlive
+        $deltaSent = $true
+      }
+      elseif (Should-WriteCycleLog -EmitCycleLogs $emitCycleLogs) {
+        Write-Host "[$(Get-Date -Format o)] Delta payload is too large ($deltaBytes bytes). Fallback to full sync."
+      }
     }
 
-    $batches = Split-FileBatches -Files $wireFiles -PayloadTemplate $payloadTemplate -MaxPayloadBytes $maxPayloadBytes
-    $totalChunks = $batches.Count
-    $syncedChunks = 0
-
-    if (Should-WriteCycleLog -EmitCycleLogs $emitCycleLogs) {
-      Write-Host "[$(Get-Date -Format o)] Changes detected. Sending $totalChunks chunk(s)..."
-    }
-
-    for ($i = 0; $i -lt $totalChunks; $i++) {
-      $payload = $payloadTemplate.Clone()
-      $chunkFiles = @($batches[$i])
-      $payload.Files = $chunkFiles
-
-      if ($totalChunks -gt 1) {
-        $payload.ChunkIndex = $i + 1
-        $payload.TotalChunks = $totalChunks
+    if (-not $deltaSent) {
+      $payloadTemplate = @{
+        MachineId = [string]$config.machineId
+        RootPath = $scanRoot
+        SnapshotHash = $snapshotHash
+        Files = @()
       }
 
-      $json = $payload | ConvertTo-Json -Depth 6 -Compress
-      Invoke-SyncRequest -Uri $syncUrl -Headers $headers -Body $json -TimeoutSec $requestTimeoutSeconds -RetryCount $retryCount -RetryDelaySeconds $retryDelaySeconds -DisableKeepAlive $disableKeepAlive
+      $batches = Split-FileBatches -Files $wireFiles -PayloadTemplate $payloadTemplate -MaxPayloadBytes $maxPayloadBytes
+      $totalChunks = $batches.Count
+      $syncedChunks = 0
+
       if (Should-WriteCycleLog -EmitCycleLogs $emitCycleLogs) {
-        Write-Host "[$(Get-Date -Format o)] Synced chunk $($i + 1)/$totalChunks, files: $($chunkFiles.Count)"
+        Write-Host "[$(Get-Date -Format o)] Changes detected. Sending full sync with $totalChunks chunk(s)..."
       }
-      $syncedChunks++
-    }
 
-    if ($syncedChunks -lt $totalChunks) {
-      Write-Host "[$(Get-Date -Format o)] Warning: synced only $syncedChunks of $totalChunks chunks. Snapshot hash will not be persisted, retry on next cycle."
-      Start-Sleep -Seconds $scanIntervalSeconds
-      continue
+      for ($i = 0; $i -lt $totalChunks; $i++) {
+        $payload = $payloadTemplate.Clone()
+        $chunkFiles = @($batches[$i])
+        $payload.Files = $chunkFiles
+
+        if ($totalChunks -gt 1) {
+          $payload.ChunkIndex = $i + 1
+          $payload.TotalChunks = $totalChunks
+        }
+
+        $json = $payload | ConvertTo-Json -Depth 6 -Compress
+        Invoke-SyncRequest -Uri $syncUrl -Headers $headers -Body $json -TimeoutSec $requestTimeoutSeconds -RetryCount $retryCount -RetryDelaySeconds $retryDelaySeconds -DisableKeepAlive $disableKeepAlive
+        if (Should-WriteCycleLog -EmitCycleLogs $emitCycleLogs) {
+          Write-Host "[$(Get-Date -Format o)] Synced chunk $($i + 1)/$totalChunks, files: $($chunkFiles.Count)"
+        }
+        $syncedChunks++
+      }
+
+      if ($syncedChunks -lt $totalChunks) {
+        Write-Host "[$(Get-Date -Format o)] Warning: synced only $syncedChunks of $totalChunks chunks. Snapshot hash will not be persisted, retry on next cycle."
+        Start-Sleep -Seconds $scanIntervalSeconds
+        continue
+      }
     }
 
     $lastHash = $snapshotHash
-    Write-IndexerState -StatePath $statePath -SnapshotHash $snapshotHash
+    $lastFilesByPath = @{}
+    foreach ($wf in $wireFiles) {
+      if ($wf -and $wf.RelativePath) {
+        $lastFilesByPath[[string]$wf.RelativePath.ToLowerInvariant()] = $wf
+      }
+    }
+
+    Write-IndexerState -StatePath $statePath -SnapshotHash $snapshotHash -Files $wireFiles
   }
   catch {
     $err = $_

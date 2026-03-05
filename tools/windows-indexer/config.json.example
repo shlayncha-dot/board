@@ -10,5 +10,10 @@
   "retryDelaySeconds": 3,
   "disableKeepAlive": true,
   "emitCycleLogs": true,
-  "includeExtensions": [".pdf", ".dxf"]
+  "includeExtensions": [
+    ".pdf",
+    ".dxf"
+  ],
+  "syncDeltaEndpoint": "/api/file-index/sync-delta",
+  "enableDeltaSync": true
 }

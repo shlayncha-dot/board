@@ -26,6 +26,16 @@ public sealed class FileIndexSyncResponse
     public DateTime UpdatedAtUtc { get; init; }
 }
 
+public sealed class FileIndexDeltaSyncRequest
+{
+    public required string MachineId { get; init; }
+    public required string RootPath { get; init; }
+    public required string BaseSnapshotHash { get; init; }
+    public required string NewSnapshotHash { get; init; }
+    public required IReadOnlyList<IndexedFileDto> AddedOrUpdatedFiles { get; init; }
+    public required IReadOnlyList<string> DeletedRelativePaths { get; init; }
+}
+
 public sealed class FileIndexSnapshot
 {
     public required string MachineId { get; init; }

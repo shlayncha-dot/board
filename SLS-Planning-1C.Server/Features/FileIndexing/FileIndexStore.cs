@@ -5,6 +5,7 @@ namespace SLS_Planning_1C.Server.Features.FileIndexing;
 public interface IFileIndexStore
 {
     FileIndexSyncResponse UpsertSnapshot(FileIndexSyncRequest request);
+    FileIndexSyncResponse ApplyDelta(FileIndexDeltaSyncRequest request);
     IReadOnlyList<IndexedFileDto> GetAllIndexedFiles();
 }
 
@@ -92,6 +93,94 @@ public sealed class FileIndexStore : IFileIndexStore
             return _snapshotsByMachine.Values
                 .SelectMany(s => s.Files)
                 .ToList();
+        }
+    }
+
+    public FileIndexSyncResponse ApplyDelta(FileIndexDeltaSyncRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (string.IsNullOrWhiteSpace(request.MachineId))
+        {
+            throw new InvalidOperationException("MachineId is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.RootPath))
+        {
+            throw new InvalidOperationException("RootPath is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.BaseSnapshotHash) || string.IsNullOrWhiteSpace(request.NewSnapshotHash))
+        {
+            throw new InvalidOperationException("BaseSnapshotHash and NewSnapshotHash are required.");
+        }
+
+        var deletedRelativePaths = request.DeletedRelativePaths ?? [];
+        var addedOrUpdatedFiles = request.AddedOrUpdatedFiles ?? [];
+
+        lock (_sync)
+        {
+            if (!_snapshotsByMachine.TryGetValue(request.MachineId, out var existingSnapshot))
+            {
+                throw new InvalidOperationException("Базовый snapshot для машины не найден. Выполните полную синхронизацию.");
+            }
+
+            if (!string.Equals(existingSnapshot.SnapshotHash, request.BaseSnapshotHash, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("Конфликт версий snapshot. Требуется полная пересинхронизация.");
+            }
+
+            if (string.Equals(request.BaseSnapshotHash, request.NewSnapshotHash, StringComparison.Ordinal))
+            {
+                return new FileIndexSyncResponse
+                {
+                    Updated = false,
+                    FileCount = existingSnapshot.Files.Count,
+                    UpdatedAtUtc = existingSnapshot.UpdatedAtUtc
+                };
+            }
+
+            var mergedByPath = existingSnapshot.Files
+                .ToDictionary(file => file.RelativePath, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var deletedPath in deletedRelativePaths)
+            {
+                if (!string.IsNullOrWhiteSpace(deletedPath))
+                {
+                    mergedByPath.Remove(deletedPath);
+                }
+            }
+
+            foreach (var file in addedOrUpdatedFiles)
+            {
+                if (string.IsNullOrWhiteSpace(file.RelativePath))
+                {
+                    continue;
+                }
+
+                mergedByPath[file.RelativePath] = file;
+            }
+
+            var snapshot = new FileIndexSnapshot
+            {
+                MachineId = request.MachineId,
+                RootPath = request.RootPath,
+                SnapshotHash = request.NewSnapshotHash,
+                Files = mergedByPath.Values
+                    .OrderBy(file => file.RelativePath, StringComparer.OrdinalIgnoreCase)
+                    .ToList(),
+                UpdatedAtUtc = DateTime.UtcNow
+            };
+
+            _snapshotsByMachine[request.MachineId] = snapshot;
+            PersistToDisk();
+
+            return new FileIndexSyncResponse
+            {
+                Updated = true,
+                FileCount = snapshot.Files.Count,
+                UpdatedAtUtc = snapshot.UpdatedAtUtc
+            };
         }
     }
 

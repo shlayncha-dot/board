@@ -11,7 +11,8 @@
 2. В этой папке создайте `config.json` на основе `config.json.example`.
 3. Заполните параметры:
    - `serverUrl`: адрес сервера (`https://sls-planning.omnic.pro`).
-   - `syncEndpoint`: endpoint API (`/api/file-index/sync`).
+   - `syncEndpoint`: endpoint API полного снимка (`/api/file-index/sync`).
+   - `syncDeltaEndpoint` (опционально): endpoint API для дельты (`/api/file-index/sync-delta`). По умолчанию именно этот путь.
    - `scanRoot`: папка для сканирования относительно расположения батника, например `.`.
    - `scanIntervalSeconds`: интервал сканирования.
    - `machineId`: уникальный идентификатор ПК.
@@ -19,6 +20,7 @@
    - `requestTimeoutSeconds` (опционально): таймаут HTTP-запроса. По умолчанию `30`.
    - `auth` (опционально): нужен **только** если ваш прокси/сервер требует HTTP-авторизацию.
    - `emitCycleLogs` (опционально): `true/false`, выводить ли сообщения каждого цикла (`Scan started`, `No changes`, `Synced chunk`). По умолчанию `true`.
+   - `enableDeltaSync` (опционально): `true/false`, включить режим baseline + delta (после первого полного снимка отправлять только добавленные/измененные/удаленные файлы). По умолчанию `true`.
    - `includeExtensions` (опционально): список расширений для индексации, например `[".pdf", ".dxf"]`. Если не задан — сканируются все файлы.
 
 ## Запуск вручную
@@ -40,6 +42,8 @@
   "scanRoot": ".",
   "scanIntervalSeconds": 30,
   "machineId": "PC-REMOTE-01",
+  "syncDeltaEndpoint": "/api/file-index/sync-delta",
+  "enableDeltaSync": true,
   "maxPayloadBytes": 800000,
   "requestTimeoutSeconds": 30,
   "emitCycleLogs": false,
@@ -88,7 +92,8 @@
 - Для каждого файла отправляются: `FileName`, `RelativePath`, `Extension`, `LastWriteTimeUtc`, `SizeBytes`.
 - Вычисляется `SnapshotHash` по полному списку файлов.
 - Если хэш не изменился относительно предыдущего успешного цикла — отправка не выполняется.
-- Если хэш изменился — отправляется новый снимок (при необходимости чанками).
+- Если хэш изменился, индексатор сначала пытается отправить **дельту** на `/api/file-index/sync-delta` (added/updated/deleted).
+- Если дельта слишком большая (превышает `maxPayloadBytes`) или дельта-режим отключен, выполняется fallback на полный снимок `/api/file-index/sync` с chunk-загрузкой.
 
 ## Частая ошибка: `(413) Request Entity Too Large`
 - Это не проблема формата JSON: код `413` означает, что сервер/прокси отклонил слишком большой `POST`-запрос.
@@ -121,7 +126,7 @@
 - идёт первый глубокий проход по большой папке (особенно при `scanRoot` = `C:\...`);
 - зависает сетевой запрос к серверу/прокси.
 
-В текущей версии индексатор пишет этапы в консоль (`Scan started`, `Files discovered`, `Sending ... chunk(s)`) и использует `requestTimeoutSeconds`, чтобы запрос не висел бесконечно.
+В текущей версии индексатор пишет этапы в консоль (`Scan started`, `Files discovered`, `Sending delta`, `Sending full sync ... chunk(s)`) и использует `requestTimeoutSeconds`, чтобы запрос не висел бесконечно.
 
 Рекомендации:
 - временно сузить `scanRoot` до конкретной рабочей папки, а не всего диска;

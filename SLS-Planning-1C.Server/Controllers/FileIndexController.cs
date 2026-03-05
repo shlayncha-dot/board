@@ -28,6 +28,21 @@ public sealed class FileIndexController : ControllerBase
         }
     }
 
+
+    [HttpPost("sync-delta")]
+    public ActionResult<FileIndexSyncResponse> SyncDelta([FromBody] FileIndexDeltaSyncRequest request)
+    {
+        try
+        {
+            var result = _fileIndexStore.ApplyDelta(request);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
     [HttpPost("test")]
     public ActionResult<string> Test([FromBody] FileIndexTestRequest request)
     {

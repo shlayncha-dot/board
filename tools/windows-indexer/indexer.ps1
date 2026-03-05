@@ -103,12 +103,29 @@ function Split-FileBatches([array]$Files, [hashtable]$PayloadTemplate, [int]$Max
   return $batches
 }
 
+function Get-ExceptionResponse([System.Exception]$Exception) {
+  $current = $Exception
+
+  while ($current) {
+    if ($current.PSObject -and $current.PSObject.Properties.Name -contains 'Response') {
+      $response = $current.PSObject.Properties['Response'].Value
+      if ($response) {
+        return $response
+      }
+    }
+
+    $current = $current.InnerException
+  }
+
+  return $null
+}
+
 function Get-HttpErrorDetails([System.Management.Automation.ErrorRecord]$ErrorRecord) {
   if (-not $ErrorRecord -or -not $ErrorRecord.Exception) {
     return $null
   }
 
-  $response = $ErrorRecord.Exception.Response
+  $response = Get-ExceptionResponse -Exception $ErrorRecord.Exception
   if (-not $response) {
     return $null
   }
@@ -323,9 +340,10 @@ while ($true) {
   }
   catch {
     $err = $_
-    if ($err.Exception.Response -and $err.Exception.Response.StatusCode) {
-      $statusCode = [int]$err.Exception.Response.StatusCode
-      Write-Host "[$(Get-Date -Format o)] Error: Remote server returned an error: ($statusCode) $($err.Exception.Response.StatusDescription)."
+    $response = Get-ExceptionResponse -Exception $err.Exception
+    if ($response -and $response.StatusCode) {
+      $statusCode = [int]$response.StatusCode
+      Write-Host "[$(Get-Date -Format o)] Error: Remote server returned an error: ($statusCode) $($response.StatusDescription)."
       $errorDetails = Get-HttpErrorDetails -ErrorRecord $err
       if ($errorDetails) {
         Write-Host "[$(Get-Date -Format o)] Server response body: $errorDetails"

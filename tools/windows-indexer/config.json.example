@@ -5,11 +5,5 @@
   "scanIntervalSeconds": 30,
   "machineId": "PC-REMOTE-01",
   "maxPayloadBytes": 800000,
-  "requestTimeoutSeconds": 30,
-  "auth": {
-    "apiKeyHeader": "",
-    "apiKey": "",
-    "username": "",
-    "password": ""
-  }
+  "requestTimeoutSeconds": 30
 }

@@ -18,7 +18,7 @@ function Get-SnapshotHash([array]$Files) {
   try {
     $lines = $Files |
       Sort-Object RelativePath |
-      ForEach-Object { "{0}|{1}|{2}|{3:o}" -f $_.RelativePath, $_.SizeBytes, $_.Extension, $_.LastWriteTimeUtc }
+      ForEach-Object { "{0}|{1}|{2}|{3}" -f $_.RelativePath, $_.SizeBytes, $_.Extension, $_.LastWriteTimeUtc }
 
     $bytes = [System.Text.Encoding]::UTF8.GetBytes(($lines -join "`n"))
     $hash = $sha.ComputeHash($bytes)

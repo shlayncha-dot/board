@@ -3,5 +3,6 @@
   "syncEndpoint": "/api/file-index/sync",
   "scanRoot": ".",
   "scanIntervalSeconds": 30,
-  "machineId": "PC-REMOTE-01"
+  "machineId": "PC-REMOTE-01",
+  "maxPayloadBytes": 800000
 }

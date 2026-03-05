@@ -22,8 +22,15 @@ public sealed class FileIndexController : ControllerBase
             return BadRequest("Разрешены только .pdf и .dxf файлы.");
         }
 
-        var result = _fileIndexStore.UpsertSnapshot(request);
-        return Ok(result);
+        try
+        {
+            var result = _fileIndexStore.UpsertSnapshot(request);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
     private static bool IsSupportedExtension(string extension)

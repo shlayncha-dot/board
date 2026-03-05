@@ -15,6 +15,8 @@ public sealed class FileIndexSyncRequest
     public required string RootPath { get; init; }
     public required string SnapshotHash { get; init; }
     public required IReadOnlyList<IndexedFileDto> Files { get; init; }
+    public int? ChunkIndex { get; init; }
+    public int? TotalChunks { get; init; }
 }
 
 public sealed class FileIndexSyncResponse

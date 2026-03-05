@@ -84,12 +84,20 @@ $maxPayloadBytes = if ($null -ne $config.maxPayloadBytes) { [int]$config.maxPayl
 $requestTimeoutSeconds = if ($null -ne $config.requestTimeoutSeconds) { [int]$config.requestTimeoutSeconds } else { 30 }
 
 $headers = @{}
-if ($config.auth -and $config.auth.apiKeyHeader -and $config.auth.apiKey) {
-  $headers[[string]$config.auth.apiKeyHeader] = [string]$config.auth.apiKey
+$authConfig = if ($config.PSObject.Properties.Name -contains 'auth') { $config.auth } else { $null }
+
+$apiKeyHeader = if ($authConfig -and $authConfig.PSObject.Properties.Name -contains 'apiKeyHeader') { [string]$authConfig.apiKeyHeader } else { $null }
+$apiKey = if ($authConfig -and $authConfig.PSObject.Properties.Name -contains 'apiKey') { [string]$authConfig.apiKey } else { $null }
+
+if ($apiKeyHeader -and $apiKey) {
+  $headers[$apiKeyHeader] = $apiKey
 }
 
-if ($config.auth -and $config.auth.username -and $config.auth.password) {
-  $basicAuth = "{0}:{1}" -f [string]$config.auth.username, [string]$config.auth.password
+$username = if ($authConfig -and $authConfig.PSObject.Properties.Name -contains 'username') { [string]$authConfig.username } else { $null }
+$password = if ($authConfig -and $authConfig.PSObject.Properties.Name -contains 'password') { [string]$authConfig.password } else { $null }
+
+if ($username -and $password) {
+  $basicAuth = "{0}:{1}" -f $username, $password
   $basicAuthBytes = [System.Text.Encoding]::UTF8.GetBytes($basicAuth)
   $headers["Authorization"] = "Basic " + [Convert]::ToBase64String($basicAuthBytes)
 }

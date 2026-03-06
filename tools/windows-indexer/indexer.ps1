@@ -249,20 +249,20 @@ function Convert-ToWireFileEntry([object]$Entry) {
 
 function Split-FileBatches([array]$Files, [hashtable]$PayloadTemplate, [int]$MaxPayloadBytes) {
   if ($Files.Count -eq 0) {
-    return @(@())
+    return @()
   }
 
   $batches = @()
   $current = @()
 
   foreach ($file in $Files) {
-    $candidate = @($current + $file)
+    $candidate = @($current + @($file))
     $payload = $PayloadTemplate.Clone()
-    $payload.Files = @($candidate)
+    $payload.Files = $candidate
     $size = [System.Text.Encoding]::UTF8.GetByteCount(($payload | ConvertTo-Json -Depth 6 -Compress))
 
     if ($size -gt $MaxPayloadBytes -and $current.Count -gt 0) {
-      $batches += ,@($current)
+      $batches += ,$current
       $current = @($file)
     }
     else {
@@ -271,7 +271,7 @@ function Split-FileBatches([array]$Files, [hashtable]$PayloadTemplate, [int]$Max
   }
 
   if ($current.Count -gt 0) {
-    $batches += ,@($current)
+    $batches += ,$current
   }
 
   return $batches
@@ -675,7 +675,7 @@ while ($true) {
 
       for ($i = 0; $i -lt $totalChunks; $i++) {
         $payload = $payloadTemplate.Clone()
-        $chunkFiles = @($batches[$i])
+        $chunkFiles = $batches[$i]
         $payload.Files = $chunkFiles
 
         if ($totalChunks -gt 1) {

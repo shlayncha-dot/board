@@ -395,9 +395,20 @@ function Test-ShouldFallbackToFullSync([System.Management.Automation.ErrorRecord
   }
 
   $detailsLower = $details.ToLowerInvariant()
-  return $detailsLower.Contains('конфликт версий snapshot') -or
-    $detailsLower.Contains('требуется полная пересинхронизация') -or
-    $detailsLower.Contains('базовый snapshot для машины не найден')
+
+  if ($detailsLower.Contains('snapshot') -and ($detailsLower.Contains('conflict') -or $detailsLower.Contains('mismatch'))) {
+    return $true
+  }
+
+  if ($detailsLower.Contains('full') -and ($detailsLower.Contains('resync') -or $detailsLower.Contains('re-sync') -or $detailsLower.Contains('resynchronization'))) {
+    return $true
+  }
+
+  if ($detailsLower.Contains('snapshot') -and ($detailsLower.Contains('not found') -or $detailsLower.Contains('missing'))) {
+    return $true
+  }
+
+  return $false
 }
 
 function Invoke-SyncRequest(

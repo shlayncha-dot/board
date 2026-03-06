@@ -720,7 +720,10 @@ while ($true) {
 
       for ($i = 0; $i -lt $totalChunks; $i++) {
         $payload = $payloadTemplate.Clone()
-        $chunkFiles = Convert-ToJsonArray $batches[$i]
+        # Keep array shape even for single-file chunks; otherwise PowerShell can unwrap
+        # the function result to a scalar object and the server receives Files as object
+        # instead of JSON array.
+        $chunkFiles = @(Convert-ToJsonArray $batches[$i])
         $payload.Files = $chunkFiles
 
         if ($totalChunks -gt 1) {

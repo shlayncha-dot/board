@@ -414,6 +414,12 @@ function Test-ShouldFallbackToFullSync([System.Management.Automation.ErrorRecord
     return $false
   }
 
+  # 404 on delta endpoint usually means backend does not expose /sync-delta yet.
+  # In this case we should silently fallback to full sync instead of failing the cycle.
+  if ($statusCode -eq 404) {
+    return $true
+  }
+
   $details = Get-HttpErrorDetails -ErrorRecord $ErrorRecord
   if ([string]::IsNullOrWhiteSpace($details)) {
     return $false

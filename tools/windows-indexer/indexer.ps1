@@ -130,26 +130,26 @@ function Build-DeltaPayload(
     $currentByPath[$relativePath.ToLowerInvariant()] = $file
   }
 
-  $addedOrUpdated = @()
+  $addedOrUpdated = [System.Collections.Generic.List[object]]::new()
   foreach ($kv in $currentByPath.GetEnumerator()) {
     $key = $kv.Key
     $current = $kv.Value
 
     if (-not $PreviousFilesByPath.ContainsKey($key)) {
-      $addedOrUpdated += ,$current
+      $addedOrUpdated.Add($current)
       continue
     }
 
     $previous = $PreviousFilesByPath[$key]
     if ((Get-EntryFingerprint -Entry $current) -ne (Get-EntryFingerprint -Entry $previous)) {
-      $addedOrUpdated += ,$current
+      $addedOrUpdated.Add($current)
     }
   }
 
-  $deleted = @()
+  $deleted = [System.Collections.Generic.List[string]]::new()
   foreach ($kv in $PreviousFilesByPath.GetEnumerator()) {
     if (-not $currentByPath.ContainsKey($kv.Key)) {
-      $deleted += ,[string]$kv.Value.RelativePath
+      $deleted.Add([string]$kv.Value.RelativePath)
     }
   }
 
@@ -158,9 +158,14 @@ function Build-DeltaPayload(
     RootPath = $RootPath
     BaseSnapshotHash = $BaseSnapshotHash
     NewSnapshotHash = $NewSnapshotHash
-    AddedOrUpdatedFiles = @($addedOrUpdated)
-    DeletedRelativePaths = @($deleted)
+    AddedOrUpdatedFiles = @($addedOrUpdated.ToArray())
+    DeletedRelativePaths = @($deleted.ToArray())
   }
+}
+
+function Get-PayloadSizeBytes([hashtable]$Payload, [int]$Depth) {
+  $json = $Payload | ConvertTo-Json -Depth $Depth -Compress
+  return [System.Text.Encoding]::UTF8.GetByteCount($json)
 }
 
 function Convert-ToIndexEntry([System.IO.FileInfo]$File, [string]$ScanRoot) {
@@ -247,21 +252,35 @@ function Convert-ToWireFileEntry([object]$Entry) {
   }
 }
 
-function Split-FileBatches([array]$Files, [hashtable]$PayloadTemplate, [int]$MaxPayloadBytes) {
+function Split-FileBatches(
+  [array]$Files,
+  [hashtable]$PayloadTemplate,
+  [int]$MaxPayloadBytes,
+  [int]$ChunkMetadataOverheadBytes
+) {
   if ($Files.Count -eq 0) {
     return @()
   }
 
   $batches = @()
   $current = @()
+  $sizeLimit = $MaxPayloadBytes - [Math]::Max(0, $ChunkMetadataOverheadBytes)
+
+  if ($sizeLimit -le 0) {
+    throw "Config 'maxPayloadBytes' must be greater than 'chunkMetadataOverheadBytes'."
+  }
 
   foreach ($file in $Files) {
     $candidate = @($current + @($file))
     $payload = $PayloadTemplate.Clone()
     $payload.Files = $candidate
-    $size = [System.Text.Encoding]::UTF8.GetByteCount(($payload | ConvertTo-Json -Depth 6 -Compress))
+    $size = Get-PayloadSizeBytes -Payload $payload -Depth 6
 
-    if ($size -gt $MaxPayloadBytes -and $current.Count -gt 0) {
+    if ($size -gt $sizeLimit -and $current.Count -eq 0) {
+      throw "A single file entry exceeds max payload size. Increase 'maxPayloadBytes' or reduce entry metadata size."
+    }
+
+    if ($size -gt $sizeLimit -and $current.Count -gt 0) {
       $batches += ,$current
       $current = @($file)
     }
@@ -485,6 +504,7 @@ $syncDeltaUrl = "$serverUrl$syncDeltaEndpoint"
 
 $scanIntervalSeconds = if ($null -ne $config.scanIntervalSeconds) { [int]$config.scanIntervalSeconds } else { 30 }
 $maxPayloadBytes = if ($null -ne $config.maxPayloadBytes) { [int]$config.maxPayloadBytes } else { 800000 }
+$chunkMetadataOverheadBytes = if ($null -ne $config.chunkMetadataOverheadBytes) { [int]$config.chunkMetadataOverheadBytes } else { 512 }
 $requestTimeoutSeconds = if ($null -ne $config.requestTimeoutSeconds) { [int]$config.requestTimeoutSeconds } else { 30 }
 $retryCount = if ($null -ne $config.retryCount) { [int]$config.retryCount } else { 3 }
 $retryDelaySeconds = if ($null -ne $config.retryDelaySeconds) { [int]$config.retryDelaySeconds } else { 3 }
@@ -536,6 +556,7 @@ Write-Host "Sync URL: $syncUrl"
 Write-Host "Delta sync URL: $syncDeltaUrl"
 Write-Host "Scan interval: $scanIntervalSeconds sec"
 Write-Host "Max payload bytes: $maxPayloadBytes"
+Write-Host "Chunk metadata overhead bytes: $chunkMetadataOverheadBytes"
 Write-Host "Request timeout: $requestTimeoutSeconds sec"
 Write-Host "Retry count: $retryCount"
 Write-Host "Retry delay: $retryDelaySeconds sec"
@@ -587,17 +608,18 @@ while ($true) {
       } |
       Where-Object { $null -ne $_ })
 
-    $wireFiles = @()
+    $wireFilesList = [System.Collections.Generic.List[object]]::new()
     $invalidPayloadEntries = 0
     foreach ($file in $files) {
       $wireEntry = Convert-ToWireFileEntry -Entry $file
       if ($wireEntry) {
-        $wireFiles += ,$wireEntry
+        $wireFilesList.Add($wireEntry)
       }
       else {
         $invalidPayloadEntries++
       }
     }
+    $wireFiles = @($wireFilesList.ToArray())
 
     if (Should-WriteCycleLog -EmitCycleLogs $emitCycleLogs) {
       Write-Host "[$(Get-Date -Format o)] Files discovered: $($files.Count)"
@@ -665,7 +687,7 @@ while ($true) {
         Files = @()
       }
 
-      $batches = Split-FileBatches -Files $wireFiles -PayloadTemplate $payloadTemplate -MaxPayloadBytes $maxPayloadBytes
+      $batches = Split-FileBatches -Files $wireFiles -PayloadTemplate $payloadTemplate -MaxPayloadBytes $maxPayloadBytes -ChunkMetadataOverheadBytes $chunkMetadataOverheadBytes
       $totalChunks = $batches.Count
       $syncedChunks = 0
 

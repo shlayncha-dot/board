@@ -257,8 +257,21 @@ function Convert-ToJsonArray([object]$Value) {
     return @()
   }
 
-  if ($Value -is [System.Collections.IEnumerable] -and -not ($Value -is [string])) {
+  if ($Value -is [string]) {
     return @($Value)
+  }
+
+  if ($Value -is [System.Collections.IDictionary]) {
+    return ,$Value
+  }
+
+  if ($Value -is [System.Collections.IEnumerable]) {
+    $result = [System.Collections.Generic.List[object]]::new()
+    foreach ($item in $Value) {
+      $result.Add($item)
+    }
+
+    return @($result.ToArray())
   }
 
   return @($Value)

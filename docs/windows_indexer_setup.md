@@ -139,3 +139,21 @@
 Нет, батник **не подключается к БД напрямую**.
 Он отправляет JSON на HTTP endpoint `/api/file-index/sync`, а уже сервер сохраняет снимок у себя.
 Пароль нужен только если ваш сервер/прокси требует авторизацию на уровне HTTP (см. блок `auth`).
+
+---
+
+## Альтернатива: .NET Worker + SQLite
+
+Для более надежной работы доступен вариант индексатора на C# / .NET Worker:
+- путь: `tools/windows-indexer-dotnet`;
+- состояние хранится в SQLite (`.indexer-state.db`);
+- API-формат полностью совместим с текущим backend (`/api/file-index/sync` и `/api/file-index/sync-delta`).
+
+Краткий запуск:
+1. Установить .NET 8 SDK.
+2. Скопировать `config.worker.json.example` в `config.worker.json`.
+3. Заполнить параметры (аналогично текущему `config.json`).
+4. Запустить:
+   - `dotnet run --project ./tools/windows-indexer-dotnet/WindowsIndexer.Worker.csproj -- ./tools/windows-indexer-dotnet/config.worker.json`
+
+Подробности — в `tools/windows-indexer-dotnet/README.md`.

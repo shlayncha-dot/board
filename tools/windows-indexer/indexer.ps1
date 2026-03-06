@@ -252,6 +252,18 @@ function Convert-ToWireFileEntry([object]$Entry) {
   }
 }
 
+function Convert-ToJsonArray([object]$Value) {
+  if ($null -eq $Value) {
+    return @()
+  }
+
+  if ($Value -is [System.Collections.IEnumerable] -and -not ($Value -is [string])) {
+    return @($Value)
+  }
+
+  return @($Value)
+}
+
 function Split-FileBatches(
   [array]$Files,
   [hashtable]$PayloadTemplate,
@@ -708,7 +720,7 @@ while ($true) {
 
       for ($i = 0; $i -lt $totalChunks; $i++) {
         $payload = $payloadTemplate.Clone()
-        $chunkFiles = $batches[$i]
+        $chunkFiles = Convert-ToJsonArray $batches[$i]
         $payload.Files = $chunkFiles
 
         if ($totalChunks -gt 1) {

@@ -418,8 +418,7 @@ public sealed class VerificationService : IVerificationService
                     return false;
                 }
 
-                if (key.Revision is not null
-                    && !string.Equals(candidate.Revision, key.Revision, StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(candidate.Revision, key.Revision, StringComparison.OrdinalIgnoreCase))
                 {
                     return false;
                 }

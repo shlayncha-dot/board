@@ -249,6 +249,7 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
     const [isNamingLogOpen, setIsNamingLogOpen] = useState(false);
     const [generalCheckReport, setGeneralCheckReport] = useState(null);
     const [drawingPreview, setDrawingPreview] = useState(null);
+    const [drawingPreviewError, setDrawingPreviewError] = useState('');
 
     const appendNamingLog = useCallback((message) => {
         setNamingLogs((prevState) => [...prevState, message]);
@@ -1068,6 +1069,8 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
             return;
         }
 
+        setDrawingPreviewError('');
+
         const query = new URLSearchParams({ detailName: normalizedDetailName });
         const response = await fetch(`${fileIndexApi.drawingPreview}?${query.toString()}`);
 
@@ -1105,6 +1108,14 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
 
             return null;
         });
+    }, []);
+
+    const openDrawingPreviewError = useCallback((message) => {
+        setDrawingPreviewError(String(message ?? '').trim() || 'Чертеж не найден');
+    }, []);
+
+    const closeDrawingPreviewError = useCallback(() => {
+        setDrawingPreviewError('');
     }, []);
 
     return (
@@ -1179,6 +1190,9 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
                     onRequestDrawingPreview={handleDrawingPreviewRequest}
                     drawingPreview={drawingPreview}
                     onCloseDrawingPreview={closeDrawingPreview}
+                    drawingPreviewError={drawingPreviewError}
+                    onCloseDrawingPreviewError={closeDrawingPreviewError}
+                    onDrawingPreviewError={openDrawingPreviewError}
                 />
             </div>
 

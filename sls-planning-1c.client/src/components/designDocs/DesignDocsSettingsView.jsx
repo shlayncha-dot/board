@@ -14,15 +14,6 @@ const DesignDocsSettingsView = ({
                 <h2>Настройки Спецификации</h2>
                 <div className="specification-grid">
                     <label>
-                        <span>Link Server</span>
-                        <input
-                            type="text"
-                            value={specificationSettings.linkServer}
-                            onChange={(event) => onSpecificationSettingChange('linkServer', event.target.value)}
-                            placeholder="\\\\192.168.1.193\\PilotGroup"
-                        />
-                    </label>
-                    <label>
                         <span>Столбцы</span>
                         <textarea
                             rows={25}
@@ -79,6 +70,21 @@ const DesignDocsSettingsView = ({
                             />
                         </React.Fragment>
                     ))}
+                </div>
+            </div>
+
+            <div className="settings-horizontal-group specification-group">
+                <h2>Link Server</h2>
+                <div className="specification-grid">
+                    <label>
+                        <span>Путь к сетевой папке (UNC)</span>
+                        <input
+                            type="text"
+                            value={specificationSettings.linkServer}
+                            onChange={(event) => onSpecificationSettingChange('linkServer', event.target.value)}
+                            placeholder="\\\\192.168.1.193\\PilotGroup"
+                        />
+                    </label>
                 </div>
             </div>
 

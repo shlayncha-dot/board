@@ -71,7 +71,7 @@ const HeaderBar = ({
                 </span>
             </div>
 
-            <div className="center-title">SLS Planning v1</div>
+            <div className="center-title">SLS Planning</div>
 
             <div className="header-right">
                 <div className="lang-select">

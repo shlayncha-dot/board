@@ -107,7 +107,7 @@ public sealed class FileIndexController : ControllerBase
 
         if (match is null)
         {
-            var candidatesWithoutIndex = GetCandidatesWithoutIndex(detailName, linkServer, _fileIndexStore.GetSnapshotRootPaths()).ToList();
+            var candidatesWithoutIndex = GetCandidatesWithoutIndex(detailName, linkServer).ToList();
             var candidatesText = candidatesWithoutIndex.Count > 0
                 ? string.Join("; ", candidatesWithoutIndex)
                 : "нет доступных путей";
@@ -183,7 +183,9 @@ public sealed class FileIndexController : ControllerBase
 
     private IndexedFileMatch? FindPreviewMatch(string detailName)
     {
-        var exactMatch = _fileIndexStore.FindByDetailName(detailName).FirstOrDefault();
+        var exactMatch = _fileIndexStore
+            .FindByDetailName(detailName)
+            .FirstOrDefault(IsPdfMatch);
         if (exactMatch is not null)
         {
             return exactMatch;
@@ -195,7 +197,9 @@ public sealed class FileIndexController : ControllerBase
             return null;
         }
 
-        var fallbackMatch = _fileIndexStore.FindByDetailName(normalizedType1Name).FirstOrDefault();
+        var fallbackMatch = _fileIndexStore
+            .FindByDetailName(normalizedType1Name)
+            .FirstOrDefault(IsPdfMatch);
         if (fallbackMatch is not null)
         {
             _logger.LogInformation(
@@ -225,23 +229,13 @@ public sealed class FileIndexController : ControllerBase
     {
         var rawRelativePath = match.File.RelativePath?.Trim() ?? string.Empty;
 
-        if (IsAbsolutePath(rawRelativePath))
-        {
-            yield return rawRelativePath;
-        }
-
-        if (!string.IsNullOrWhiteSpace(match.RootPath))
-        {
-            yield return CombinePath(match.RootPath, rawRelativePath);
-        }
-
         if (!string.IsNullOrWhiteSpace(linkServer))
         {
             yield return CombinePath(linkServer, rawRelativePath);
         }
     }
 
-    private static IEnumerable<string> GetCandidatesWithoutIndex(string detailName, string? linkServer, IReadOnlyList<string> snapshotRootPaths)
+    private static IEnumerable<string> GetCandidatesWithoutIndex(string detailName, string? linkServer)
     {
         var normalizedName = detailName.Trim();
         var fallbackName = NormalizeType1DetailName(normalizedName);
@@ -260,14 +254,12 @@ public sealed class FileIndexController : ControllerBase
                 yield return CombinePath(linkServer, fileName);
             }
         }
+    }
 
-        foreach (var rootPath in snapshotRootPaths)
-        {
-            foreach (var fileName in fileNames)
-            {
-                yield return CombinePath(rootPath, fileName);
-            }
-        }
+    private static bool IsPdfMatch(IndexedFileMatch match)
+    {
+        return string.Equals(match.File.Extension, ".pdf", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(Path.GetExtension(match.File.FileName), ".pdf", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string CombinePath(string basePath, string relativePath)

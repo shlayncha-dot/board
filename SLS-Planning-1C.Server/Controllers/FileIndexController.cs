@@ -101,20 +101,29 @@ public sealed class FileIndexController : ControllerBase
 
     private static IEnumerable<string> GetPathCandidates(IndexedFileMatch match, string? linkServer)
     {
-        if (Path.IsPathRooted(match.File.RelativePath))
+        var rawRelativePath = match.File.RelativePath?.Trim() ?? string.Empty;
+        var normalizedRelativePath = NormalizeRelativePath(rawRelativePath);
+
+        if (Path.IsPathRooted(rawRelativePath))
         {
-            yield return match.File.RelativePath;
+            yield return rawRelativePath;
         }
 
         if (!string.IsNullOrWhiteSpace(match.RootPath))
         {
-            yield return Path.Combine(match.RootPath, match.File.RelativePath);
+            yield return Path.Combine(match.RootPath, normalizedRelativePath);
         }
 
         if (!string.IsNullOrWhiteSpace(linkServer))
         {
-            yield return Path.Combine(linkServer, match.File.RelativePath);
+            yield return Path.Combine(linkServer, normalizedRelativePath);
         }
+    }
+
+    private static string NormalizeRelativePath(string path)
+    {
+        var trimmed = path.TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return trimmed.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
     }
 
     private static string ResolveContentType(string? extension)

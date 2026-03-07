@@ -13,13 +13,16 @@ const KDTableRow = React.memo(({
     onToggleRow,
     selectedCell,
     onSelectCell,
-    onDetailClick,
+    onRowDoubleClick,
     namingIssuesByRowId,
     namingTargetColumnKey,
     verificationIssuesByRowId,
     designationTargetColumnKey
 }) => (
-    <tr className={`kd-data-row ${isChecked ? 'kd-row-checked' : ''}`.trim()}>
+    <tr
+        className={`kd-data-row ${isChecked ? 'kd-row-checked' : ''}`.trim()}
+        onDoubleClick={() => onRowDoubleClick(row)}
+    >
         <td>
             <input
                 type="checkbox"
@@ -50,7 +53,6 @@ const KDTableRow = React.memo(({
                     className={cellClassName}
                     onClick={() => {
                         onSelectCell(row.id, column.key);
-                        onDetailClick(row, column.key);
                     }}
                     title={String(row[column.key] ?? '')}
                 >
@@ -135,12 +137,12 @@ const KDCheckView = ({
         setSelectedCell({ rowId, columnKey });
     }, []);
 
-    const handleDetailClick = React.useCallback(async (row, columnKey) => {
-        if (!namingTargetColumnKey || columnKey !== namingTargetColumnKey) {
+    const handleRowDoubleClick = React.useCallback(async (row) => {
+        if (!namingTargetColumnKey) {
             return;
         }
 
-        const detailName = String(row?.[columnKey] ?? '').trim();
+        const detailName = String(row?.[namingTargetColumnKey] ?? '').trim();
         if (!detailName) {
             return;
         }
@@ -225,10 +227,10 @@ const KDCheckView = ({
                 namingTargetColumnKey={namingTargetColumnKey}
                 verificationIssuesByRowId={verificationIssuesByRowId}
                 designationTargetColumnKey={designationTargetColumnKey}
-                onDetailClick={handleDetailClick}
+                onRowDoubleClick={handleRowDoubleClick}
             />
         ))
-    ), [checkedRows, designationTargetColumnKey, handleDetailClick, handleSelectCell, namingIssuesByRowId, namingTargetColumnKey, onToggleRow, selectedCell, tableColumns, verificationIssuesByRowId, visibleRows]);
+    ), [checkedRows, designationTargetColumnKey, handleRowDoubleClick, handleSelectCell, namingIssuesByRowId, namingTargetColumnKey, onToggleRow, selectedCell, tableColumns, verificationIssuesByRowId, visibleRows]);
 
     const closeFilterPopover = React.useCallback(() => {
         setOpenFilterKey(null);

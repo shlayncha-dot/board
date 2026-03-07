@@ -228,10 +228,33 @@ public sealed class FileIndexController : ControllerBase
     private static IEnumerable<string> GetPathCandidates(IndexedFileMatch match, string? linkServer)
     {
         var rawRelativePath = match.File.RelativePath?.Trim() ?? string.Empty;
+        var yielded = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (IsAbsolutePath(rawRelativePath))
+        {
+            var absoluteCandidate = rawRelativePath.Trim();
+            if (!string.IsNullOrWhiteSpace(absoluteCandidate) && yielded.Add(absoluteCandidate))
+            {
+                yield return absoluteCandidate;
+            }
+        }
 
         if (!string.IsNullOrWhiteSpace(linkServer))
         {
-            yield return CombinePath(linkServer, rawRelativePath);
+            var linkServerCandidate = CombinePath(linkServer, rawRelativePath);
+            if (!string.IsNullOrWhiteSpace(linkServerCandidate) && yielded.Add(linkServerCandidate))
+            {
+                yield return linkServerCandidate;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(match.RootPath))
+        {
+            var snapshotRootCandidate = CombinePath(match.RootPath, rawRelativePath);
+            if (!string.IsNullOrWhiteSpace(snapshotRootCandidate) && yielded.Add(snapshotRootCandidate))
+            {
+                yield return snapshotRootCandidate;
+            }
         }
     }
 

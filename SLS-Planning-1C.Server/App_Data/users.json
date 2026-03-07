@@ -29,6 +29,21 @@
       "IsAdmin": true,
       "CreatedAt": "2026-02-27T20:27:33.6730414+00:00",
       "UpdatedAt": "2026-02-27T20:27:59.6789856+00:00"
+    },
+    {
+      "Id": "5e0f4edf-59a0-449d-be3a-7b839fc2e693",
+      "Login": "11",
+      "PasswordHash": "xQjcBKs5kav6P7g0g/OTSgOOaLArcb25IWdH\u002BwT9JCM=",
+      "PasswordSalt": "odCCTNSUAVdN\u002BpAYlY1uMQ==",
+      "Role": "Oper",
+      "FirstName": "11",
+      "LastName": "",
+      "Phone": "",
+      "Email": "",
+      "PhotoUrl": "",
+      "IsAdmin": true,
+      "CreatedAt": "2026-03-07T14:10:28.8980113+00:00",
+      "UpdatedAt": "2026-03-07T14:10:39.3092387+00:00"
     }
   ]
 }

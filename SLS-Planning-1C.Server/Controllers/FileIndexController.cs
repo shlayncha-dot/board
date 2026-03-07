@@ -81,7 +81,7 @@ public sealed class FileIndexController : ControllerBase
         }
 
         var linkServer = _verificationSettingsStore.Get().SpecificationSettings.LinkServer;
-        var match = _fileIndexStore.FindByDetailName(detailName).FirstOrDefault();
+        var match = FindPreviewMatch(detailName);
 
         _logger.LogInformation(
             "Drawing preview request for detail '{DetailName}'. LinkServer: '{LinkServer}'. Match found: {HasMatch}.",
@@ -133,6 +133,46 @@ public sealed class FileIndexController : ControllerBase
         Response.Headers.Append("X-Drawing-FileName", Path.GetFileName(existingPath));
 
         return PhysicalFile(existingPath, contentType, enableRangeProcessing: true);
+    }
+
+    private IndexedFileMatch? FindPreviewMatch(string detailName)
+    {
+        var exactMatch = _fileIndexStore.FindByDetailName(detailName).FirstOrDefault();
+        if (exactMatch is not null)
+        {
+            return exactMatch;
+        }
+
+        var normalizedType1Name = NormalizeType1DetailName(detailName);
+        if (string.Equals(normalizedType1Name, detailName, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var fallbackMatch = _fileIndexStore.FindByDetailName(normalizedType1Name).FirstOrDefault();
+        if (fallbackMatch is not null)
+        {
+            _logger.LogInformation(
+                "Drawing preview fallback applied. Requested detail '{DetailName}' resolved to '{NormalizedDetailName}'.",
+                detailName,
+                normalizedType1Name);
+        }
+
+        return fallbackMatch;
+    }
+
+    private static string NormalizeType1DetailName(string detailName)
+    {
+        var normalized = detailName.Trim();
+        var dashIndex = normalized.LastIndexOf('-');
+        var lastDotIndex = normalized.LastIndexOf('.');
+
+        if (dashIndex > lastDotIndex)
+        {
+            normalized = normalized[..dashIndex].Trim();
+        }
+
+        return normalized;
     }
 
     private static IEnumerable<string> GetPathCandidates(IndexedFileMatch match, string? linkServer)

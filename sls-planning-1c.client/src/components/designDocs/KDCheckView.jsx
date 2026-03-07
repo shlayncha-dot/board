@@ -149,8 +149,12 @@ const KDCheckView = ({
 
         try {
             await onRequestDrawingPreview(detailName);
-        } catch {
-            alert('Чертеж не найден');
+        } catch (error) {
+            const message = error instanceof Error
+                ? error.message
+                : 'Чертеж не найден';
+
+            alert(message);
         }
     }, [namingTargetColumnKey, onRequestDrawingPreview]);
 

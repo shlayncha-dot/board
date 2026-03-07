@@ -207,7 +207,7 @@ public sealed class VerificationService : IVerificationService
     private static string NormalizeType1DetailName(string detailName)
     {
         var normalized = detailName.Trim();
-        var dashIndex = normalized.IndexOf('-');
+        var dashIndex = normalized.LastIndexOf('-');
         if (dashIndex >= 0)
         {
             normalized = normalized[..dashIndex].Trim();

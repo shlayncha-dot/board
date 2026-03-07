@@ -187,21 +187,20 @@ public sealed class FileIndexController : ControllerBase
     private static IEnumerable<string> GetPathCandidates(IndexedFileMatch match, string? linkServer)
     {
         var rawRelativePath = match.File.RelativePath?.Trim() ?? string.Empty;
-        var normalizedRelativePath = NormalizeRelativePath(rawRelativePath);
 
-        if (Path.IsPathRooted(rawRelativePath))
+        if (IsAbsolutePath(rawRelativePath))
         {
             yield return rawRelativePath;
         }
 
         if (!string.IsNullOrWhiteSpace(match.RootPath))
         {
-            yield return Path.Combine(match.RootPath, normalizedRelativePath);
+            yield return CombinePath(match.RootPath, rawRelativePath);
         }
 
         if (!string.IsNullOrWhiteSpace(linkServer))
         {
-            yield return Path.Combine(linkServer, normalizedRelativePath);
+            yield return CombinePath(linkServer, rawRelativePath);
         }
     }
 
@@ -221,7 +220,7 @@ public sealed class FileIndexController : ControllerBase
         {
             foreach (var fileName in fileNames)
             {
-                yield return Path.Combine(linkServer, fileName);
+                yield return CombinePath(linkServer, fileName);
             }
         }
 
@@ -229,15 +228,74 @@ public sealed class FileIndexController : ControllerBase
         {
             foreach (var fileName in fileNames)
             {
-                yield return Path.Combine(rootPath, fileName);
+                yield return CombinePath(rootPath, fileName);
             }
         }
     }
 
-    private static string NormalizeRelativePath(string path)
+    private static string CombinePath(string basePath, string relativePath)
     {
-        var trimmed = path.TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        return trimmed.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
+        if (IsAbsolutePath(relativePath))
+        {
+            return relativePath.Trim();
+        }
+
+        var separator = DetectSeparator(basePath);
+        var normalizedBase = TrimTrailingSeparators(basePath, separator);
+        var normalizedRelative = NormalizeRelativePath(relativePath, separator);
+
+        if (string.IsNullOrWhiteSpace(normalizedBase))
+        {
+            return normalizedRelative;
+        }
+
+        if (string.IsNullOrWhiteSpace(normalizedRelative))
+        {
+            return normalizedBase;
+        }
+
+        return $"{normalizedBase}{separator}{normalizedRelative}";
+    }
+
+
+    private static bool IsAbsolutePath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        return Path.IsPathRooted(path) || LooksLikeWindowsPath(path);
+    }
+
+    private static string NormalizeRelativePath(string path, char separator)
+    {
+        var trimmed = path.TrimStart('\\', '/');
+        return trimmed.Replace('/', separator).Replace('\\', separator);
+    }
+
+    private static string TrimTrailingSeparators(string path, char separator)
+    {
+        return path.TrimEnd(separator, separator == '\\' ? '/' : '\\');
+    }
+
+    private static char DetectSeparator(string path)
+    {
+        return LooksLikeWindowsPath(path) ? '\\' : '/';
+    }
+
+    private static bool LooksLikeWindowsPath(string path)
+    {
+        var trimmed = path.Trim();
+
+        if (trimmed.StartsWith("\\\\", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return trimmed.Length >= 2
+            && char.IsLetter(trimmed[0])
+            && trimmed[1] == ':';
     }
 
     private static string ResolveContentType(string? extension)

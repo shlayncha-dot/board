@@ -3,3 +3,19 @@
 [Bb]in/
 node_modules/
 *.user
+
+# Runtime server data (must not be deployed from git history)
+SLS-Planning-1C.Server/App_Data/file-index-snapshots.json
+
+# Local state/config for Windows indexer worker
+tools/windows-indexer-dotnet/.indexer-state.db
+tools/windows-indexer-dotnet/config.worker.json
+
+# App_Data JSON databases and user settings (local runtime data)
+SLS-Planning-1C.Server/App_Data/users.json
+SLS-Planning-1C.Server/App_Data/assembly-stages-procedures.json
+SLS-Planning-1C.Server/App_Data/technologist-route-sheet-settings.json
+SLS-Planning-1C.Server/App_Data/verification-settings.json
+SLS-Planning-1C.Server/App_Data/naming-credentials.json
+SLS-Planning-1C.Server/App_Data/program-specification-db.json
+SLS-Planning-1C.Server/App_Data/specification-upload-db.json

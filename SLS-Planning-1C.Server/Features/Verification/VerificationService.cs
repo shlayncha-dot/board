@@ -208,7 +208,9 @@ public sealed class VerificationService : IVerificationService
     {
         var normalized = detailName.Trim();
         var dashIndex = normalized.LastIndexOf('-');
-        if (dashIndex >= 0)
+        var lastDotIndex = normalized.LastIndexOf('.');
+
+        if (dashIndex > lastDotIndex)
         {
             normalized = normalized[..dashIndex].Trim();
         }

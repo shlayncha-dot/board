@@ -10,13 +10,16 @@ public sealed class FileIndexController : ControllerBase
 {
     private readonly IFileIndexStore _fileIndexStore;
     private readonly IVerificationSettingsStore _verificationSettingsStore;
+    private readonly ILogger<FileIndexController> _logger;
 
     public FileIndexController(
         IFileIndexStore fileIndexStore,
-        IVerificationSettingsStore verificationSettingsStore)
+        IVerificationSettingsStore verificationSettingsStore,
+        ILogger<FileIndexController> logger)
     {
         _fileIndexStore = fileIndexStore;
         _verificationSettingsStore = verificationSettingsStore;
+        _logger = logger;
     }
 
     [HttpPost("sync")]
@@ -73,24 +76,53 @@ public sealed class FileIndexController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(detailName))
         {
+            _logger.LogWarning("Drawing preview request rejected: detailName is empty.");
             return BadRequest("detailName is required.");
         }
 
         var linkServer = _verificationSettingsStore.Get().SpecificationSettings.LinkServer;
         var match = _fileIndexStore.FindByDetailName(detailName).FirstOrDefault();
 
+        _logger.LogInformation(
+            "Drawing preview request for detail '{DetailName}'. LinkServer: '{LinkServer}'. Match found: {HasMatch}.",
+            detailName,
+            string.IsNullOrWhiteSpace(linkServer) ? "<empty>" : linkServer,
+            match is not null);
+
         if (match is null)
         {
+            _logger.LogWarning("Drawing preview not found in index for detail '{DetailName}'.", detailName);
             return NotFound("Чертеж не найден.");
         }
 
         var candidates = GetPathCandidates(match, linkServer).ToList();
+        if (candidates.Count == 0)
+        {
+            _logger.LogWarning(
+                "Drawing preview has no path candidates for detail '{DetailName}'. RelativePath: '{RelativePath}', RootPath: '{RootPath}'.",
+                detailName,
+                match.File.RelativePath,
+                match.RootPath);
+        }
+
+        foreach (var candidate in candidates)
+        {
+            _logger.LogInformation(
+                "Drawing preview candidate for detail '{DetailName}': '{CandidatePath}'. Exists: {Exists}.",
+                detailName,
+                candidate,
+                System.IO.File.Exists(candidate));
+        }
+
         var existingPath = candidates.FirstOrDefault(System.IO.File.Exists);
 
         if (string.IsNullOrWhiteSpace(existingPath))
         {
+            _logger.LogWarning("Drawing preview file not found on disk for detail '{DetailName}'.", detailName);
             return NotFound("Чертеж не найден.");
         }
+
+        _logger.LogInformation("Drawing preview file resolved for detail '{DetailName}': '{ResolvedPath}'.", detailName, existingPath);
 
         var contentType = ResolveContentType(Path.GetExtension(existingPath));
         Response.Headers.Append("X-Drawing-Path", existingPath);

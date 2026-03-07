@@ -18,10 +18,12 @@ public sealed class VerificationService : IVerificationService
     };
 
     private readonly IFileIndexStore _fileIndexStore;
+    private readonly IVerificationSettingsStore _verificationSettingsStore;
 
-    public VerificationService(IFileIndexStore fileIndexStore)
+    public VerificationService(IFileIndexStore fileIndexStore, IVerificationSettingsStore verificationSettingsStore)
     {
         _fileIndexStore = fileIndexStore;
+        _verificationSettingsStore = verificationSettingsStore;
     }
 
     public VerificationResponse Verify(VerificationRequest request)
@@ -33,8 +35,10 @@ public sealed class VerificationService : IVerificationService
         var designationColumn = ResolveColumnKey(request.Rows, "обознач");
         var typeColumn = ResolveColumnKey(request.Rows, "тип");
 
-        var dxfIssues = VerifyDxf(request.Rows, designationColumn, typeColumn, dxfFiles);
-        var pdfIssues = VerifyPdf(request.Rows, designationColumn, typeColumn, request.TypeRules, pdfFiles);
+        var linkServer = _verificationSettingsStore.Get().SpecificationSettings.LinkServer;
+
+        var dxfIssues = VerifyDxf(request.Rows, designationColumn, typeColumn, dxfFiles, linkServer);
+        var pdfIssues = VerifyPdf(request.Rows, designationColumn, typeColumn, request.TypeRules, pdfFiles, linkServer);
 
         return new VerificationResponse
         {
@@ -58,7 +62,8 @@ public sealed class VerificationService : IVerificationService
         IReadOnlyList<VerifyRowDto> rows,
         string? designationColumn,
         string? typeColumn,
-        IReadOnlyList<IndexedFileDto> dxfFiles)
+        IReadOnlyList<IndexedFileDto> dxfFiles,
+        string? linkServer)
     {
         var issues = new List<VerificationIssueDto>();
         if (designationColumn is null || typeColumn is null)
@@ -79,7 +84,7 @@ public sealed class VerificationService : IVerificationService
             }
 
             var found = FindExactByFileName(detailName, dxfFiles);
-            AddIssues(row.RowId, detailName, found, issues);
+            AddIssues(row.RowId, detailName, found, issues, linkServer);
         }
 
         return issues;
@@ -101,7 +106,8 @@ public sealed class VerificationService : IVerificationService
         string? designationColumn,
         string? typeColumn,
         IReadOnlyList<VerificationTypeRuleDto> typeRules,
-        IReadOnlyList<IndexedFileDto> pdfFiles)
+        IReadOnlyList<IndexedFileDto> pdfFiles,
+        string? linkServer)
     {
         var issues = new List<VerificationIssueDto>();
         if (designationColumn is null || typeColumn is null)
@@ -138,13 +144,13 @@ public sealed class VerificationService : IVerificationService
                 _ => ApplyType1Algorithm(detailName, pdfFiles)
             };
 
-            AddIssues(row.RowId, detailName, found, issues);
+            AddIssues(row.RowId, detailName, found, issues, linkServer);
         }
 
         return issues;
     }
 
-    private static void AddIssues(string rowId, string detailName, IReadOnlyList<IndexedFileDto> found, ICollection<VerificationIssueDto> issues)
+    private static void AddIssues(string rowId, string detailName, IReadOnlyList<IndexedFileDto> found, ICollection<VerificationIssueDto> issues, string? linkServer)
     {
         if (found.Count == 1)
         {
@@ -156,8 +162,59 @@ public sealed class VerificationService : IVerificationService
             RowId = rowId,
             DetailName = detailName,
             Severity = found.Count == 0 ? VerificationSeverity.Missing : VerificationSeverity.Duplicate,
-            Paths = found.Select(x => x.RelativePath).ToList()
+            Paths = BuildIssuePaths(found, linkServer)
         });
+    }
+
+
+    private static IReadOnlyList<string> BuildIssuePaths(IReadOnlyList<IndexedFileDto> found, string? linkServer)
+    {
+        return found
+            .Select(file => BuildIssuePath(file.RelativePath, linkServer))
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .ToList();
+    }
+
+    private static string BuildIssuePath(string? relativePath, string? linkServer)
+    {
+        var normalizedRelativePath = NormalizeWindowsPath(relativePath);
+        if (string.IsNullOrWhiteSpace(normalizedRelativePath))
+        {
+            return string.Empty;
+        }
+
+        if (IsWindowsRootedPath(normalizedRelativePath) || string.IsNullOrWhiteSpace(linkServer))
+        {
+            return normalizedRelativePath;
+        }
+
+        var normalizedRoot = NormalizeWindowsPath(linkServer).TrimEnd('\\');
+        if (string.IsNullOrWhiteSpace(normalizedRoot))
+        {
+            return normalizedRelativePath;
+        }
+
+        return $"{normalizedRoot}\\{normalizedRelativePath.TrimStart('\\')}";
+    }
+
+    private static string NormalizeWindowsPath(string? path)
+    {
+        return (path ?? string.Empty)
+            .Trim()
+            .Replace('/', '\\');
+    }
+
+    private static bool IsWindowsRootedPath(string path)
+    {
+        if (path.StartsWith(@"\\", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return path.Length >= 3
+               && char.IsLetter(path[0])
+               && path[1] == ':'
+               && (path[2] == '\\' || path[2] == '/');
     }
 
     private static IReadOnlyList<IndexedFileDto> FindExactByFileName(string detailName, IReadOnlyList<IndexedFileDto> files)

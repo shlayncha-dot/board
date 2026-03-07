@@ -61,7 +61,7 @@ public sealed class FileIndexStore : IFileIndexStore
 
             if (totalChunks == 1)
             {
-                return UpsertCompleteSnapshot(request.MachineId, request.RootPath, request.SnapshotHash, request.Files);
+                return UpsertCompleteSnapshot(request.MachineId, request.EffectiveRootPath, request.SnapshotHash, request.Files);
             }
 
             var pending = GetOrCreatePendingUpload(request, totalChunks);
@@ -82,7 +82,7 @@ public sealed class FileIndexStore : IFileIndexStore
                 .ToList();
 
             _pendingUploadsByMachine.Remove(request.MachineId);
-            return UpsertCompleteSnapshot(request.MachineId, request.RootPath, request.SnapshotHash, mergedFiles);
+            return UpsertCompleteSnapshot(request.MachineId, request.EffectiveRootPath, request.SnapshotHash, mergedFiles);
         }
     }
 
@@ -105,9 +105,9 @@ public sealed class FileIndexStore : IFileIndexStore
             throw new InvalidOperationException("MachineId is required.");
         }
 
-        if (string.IsNullOrWhiteSpace(request.RootPath))
+        if (string.IsNullOrWhiteSpace(request.EffectiveRootPath))
         {
-            throw new InvalidOperationException("RootPath is required.");
+            throw new InvalidOperationException("RootPath/ScanRoot is required.");
         }
 
         if (string.IsNullOrWhiteSpace(request.BaseSnapshotHash) || string.IsNullOrWhiteSpace(request.NewSnapshotHash))
@@ -164,10 +164,11 @@ public sealed class FileIndexStore : IFileIndexStore
             var snapshot = new FileIndexSnapshot
             {
                 MachineId = request.MachineId,
-                RootPath = request.RootPath,
+                RootPath = request.EffectiveRootPath,
                 SnapshotHash = request.NewSnapshotHash,
                 Files = mergedByPath.Values
                     .OrderBy(file => file.RelativePath, StringComparer.OrdinalIgnoreCase)
+                    .Select(NormalizeFile)
                     .ToList(),
                 UpdatedAtUtc = DateTime.UtcNow
             };
@@ -206,7 +207,7 @@ public sealed class FileIndexStore : IFileIndexStore
             MachineId = machineId,
             RootPath = rootPath,
             SnapshotHash = snapshotHash,
-            Files = files,
+            Files = files.Select(NormalizeFile).ToList(),
             UpdatedAtUtc = DateTime.UtcNow
         };
 
@@ -221,11 +222,25 @@ public sealed class FileIndexStore : IFileIndexStore
         };
     }
 
+
+    private static IndexedFileDto NormalizeFile(IndexedFileDto file)
+    {
+        return new IndexedFileDto
+        {
+            FileName = file.FileName,
+            RelativePath = file.RelativePath,
+            Extension = file.Extension,
+            LastWriteTimeUtc = file.LastWriteTimeUtc,
+            SizeBytes = file.EffectiveSizeBytes,
+            Hash = file.Hash
+        };
+    }
+
     private PendingSnapshotUpload GetOrCreatePendingUpload(FileIndexSyncRequest request, int totalChunks)
     {
         if (_pendingUploadsByMachine.TryGetValue(request.MachineId, out var existing)
             && string.Equals(existing.SnapshotHash, request.SnapshotHash, StringComparison.Ordinal)
-            && string.Equals(existing.RootPath, request.RootPath, StringComparison.Ordinal)
+            && string.Equals(existing.RootPath, request.EffectiveRootPath, StringComparison.Ordinal)
             && existing.TotalChunks == totalChunks)
         {
             return existing;
@@ -234,7 +249,7 @@ public sealed class FileIndexStore : IFileIndexStore
         var pending = new PendingSnapshotUpload
         {
             MachineId = request.MachineId,
-            RootPath = request.RootPath,
+            RootPath = request.EffectiveRootPath,
             SnapshotHash = request.SnapshotHash,
             TotalChunks = totalChunks
         };

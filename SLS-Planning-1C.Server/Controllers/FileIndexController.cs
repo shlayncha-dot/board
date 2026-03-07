@@ -15,6 +15,7 @@ public sealed class FileIndexController : ControllerBase
     }
 
     [HttpPost("sync")]
+    [HttpPost("sync-full")]
     public ActionResult<FileIndexSyncResponse> Sync([FromBody] FileIndexSyncRequest request)
     {
         try

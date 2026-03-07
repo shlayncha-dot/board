@@ -85,7 +85,7 @@ public sealed class FileIndexController : ControllerBase
 
         var linkServer = _verificationSettingsStore.Get().SpecificationSettings.LinkServer;
         var cachedPdfCandidates = GetCachedPdfCandidates(detailName).ToList();
-        var existingCachedPath = cachedPdfCandidates.FirstOrDefault(System.IO.File.Exists);
+        var existingCachedPath = FindExistingPath(cachedPdfCandidates);
         if (!string.IsNullOrWhiteSpace(existingCachedPath))
         {
             _logger.LogInformation("Drawing preview file resolved from verification cache for detail '{DetailName}': '{ResolvedPath}'.", detailName, existingCachedPath);
@@ -97,37 +97,26 @@ public sealed class FileIndexController : ControllerBase
             return PhysicalFile(existingCachedPath, cachedContentType, enableRangeProcessing: true);
         }
 
-        var match = FindPreviewMatch(detailName);
+        var matches = FindPreviewMatches(detailName).ToList();
 
         _logger.LogInformation(
-            "Drawing preview request for detail '{DetailName}'. LinkServer: '{LinkServer}'. Match found: {HasMatch}.",
+            "Drawing preview request for detail '{DetailName}'. LinkServer: '{LinkServer}'. Match count: {MatchCount}.",
             detailName,
             string.IsNullOrWhiteSpace(linkServer) ? "<empty>" : linkServer,
-            match is not null);
+            matches.Count);
 
-        if (match is null)
-        {
-            var candidatesWithoutIndex = GetCandidatesWithoutIndex(detailName, linkServer).ToList();
-            var candidatesText = candidatesWithoutIndex.Count > 0
-                ? string.Join("; ", candidatesWithoutIndex)
-                : "нет доступных путей";
+        var candidates = matches
+            .SelectMany(match => GetPathCandidates(match, linkServer))
+            .Concat(GetCandidatesWithoutIndex(detailName, linkServer))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
-            _logger.LogWarning(
-                "Drawing preview not found in index for detail '{DetailName}'. Candidates without index: {Candidates}.",
-                detailName,
-                candidatesText);
-
-            return NotFound($"Чертеж не найден в индексе для детали '{detailName}'. Проверенные пути: {candidatesText}");
-        }
-
-        var candidates = GetPathCandidates(match, linkServer).ToList();
-        if (candidates.Count == 0)
+        if (matches.Count == 0)
         {
             _logger.LogWarning(
-                "Drawing preview has no path candidates for detail '{DetailName}'. RelativePath: '{RelativePath}', RootPath: '{RootPath}'.",
+                "Drawing preview not found in index for detail '{DetailName}'. Fallback candidates count: {CandidateCount}.",
                 detailName,
-                match.File.RelativePath,
-                match.RootPath);
+                candidates.Count);
         }
 
         foreach (var candidate in candidates)
@@ -136,10 +125,10 @@ public sealed class FileIndexController : ControllerBase
                 "Drawing preview candidate for detail '{DetailName}': '{CandidatePath}'. Exists: {Exists}.",
                 detailName,
                 candidate,
-                System.IO.File.Exists(candidate));
+                System.IO.File.Exists(NormalizePathCandidate(candidate)));
         }
 
-        var existingPath = candidates.FirstOrDefault(System.IO.File.Exists);
+        var existingPath = FindExistingPath(candidates);
 
         if (string.IsNullOrWhiteSpace(existingPath))
         {
@@ -181,34 +170,33 @@ public sealed class FileIndexController : ControllerBase
         }
     }
 
-    private IndexedFileMatch? FindPreviewMatch(string detailName)
+    private IEnumerable<IndexedFileMatch> FindPreviewMatches(string detailName)
     {
-        var exactMatch = _fileIndexStore
+        var exactMatches = _fileIndexStore
             .FindByDetailName(detailName)
-            .FirstOrDefault(IsPdfMatch);
-        if (exactMatch is not null)
+            .Where(IsPdfMatch)
+            .ToList();
+
+        foreach (var exact in exactMatches)
         {
-            return exactMatch;
+            yield return exact;
         }
 
         var normalizedType1Name = NormalizeType1DetailName(detailName);
         if (string.Equals(normalizedType1Name, detailName, StringComparison.OrdinalIgnoreCase))
         {
-            return null;
+            yield break;
         }
 
-        var fallbackMatch = _fileIndexStore
-            .FindByDetailName(normalizedType1Name)
-            .FirstOrDefault(IsPdfMatch);
-        if (fallbackMatch is not null)
+        _logger.LogInformation(
+            "Drawing preview fallback applied. Requested detail '{DetailName}' resolved to '{NormalizedDetailName}'.",
+            detailName,
+            normalizedType1Name);
+
+        foreach (var fallback in _fileIndexStore.FindByDetailName(normalizedType1Name).Where(IsPdfMatch))
         {
-            _logger.LogInformation(
-                "Drawing preview fallback applied. Requested detail '{DetailName}' resolved to '{NormalizedDetailName}'.",
-                detailName,
-                normalizedType1Name);
+            yield return fallback;
         }
-
-        return fallbackMatch;
     }
 
     private static string NormalizeType1DetailName(string detailName)
@@ -227,12 +215,12 @@ public sealed class FileIndexController : ControllerBase
 
     private static IEnumerable<string> GetPathCandidates(IndexedFileMatch match, string? linkServer)
     {
-        var rawRelativePath = match.File.RelativePath?.Trim() ?? string.Empty;
+        var rawRelativePath = NormalizePathCandidate(match.File.RelativePath);
         var yielded = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         if (IsAbsolutePath(rawRelativePath))
         {
-            var absoluteCandidate = rawRelativePath.Trim();
+            var absoluteCandidate = NormalizePathCandidate(rawRelativePath);
             if (!string.IsNullOrWhiteSpace(absoluteCandidate) && yielded.Add(absoluteCandidate))
             {
                 yield return absoluteCandidate;
@@ -279,6 +267,31 @@ public sealed class FileIndexController : ControllerBase
         }
     }
 
+    private static string? FindExistingPath(IEnumerable<string> candidates)
+    {
+        foreach (var candidate in candidates)
+        {
+            var normalizedCandidate = NormalizePathCandidate(candidate);
+            if (string.IsNullOrWhiteSpace(normalizedCandidate))
+            {
+                continue;
+            }
+
+            if (System.IO.File.Exists(normalizedCandidate))
+            {
+                return normalizedCandidate;
+            }
+
+            var caseInsensitiveCandidate = TryResolveCaseInsensitivePath(normalizedCandidate);
+            if (!string.IsNullOrWhiteSpace(caseInsensitiveCandidate))
+            {
+                return caseInsensitiveCandidate;
+            }
+        }
+
+        return null;
+    }
+
     private static bool IsPdfMatch(IndexedFileMatch match)
     {
         return string.Equals(match.File.Extension, ".pdf", StringComparison.OrdinalIgnoreCase)
@@ -287,9 +300,12 @@ public sealed class FileIndexController : ControllerBase
 
     private static string CombinePath(string basePath, string relativePath)
     {
+        basePath = NormalizePathCandidate(basePath);
+        relativePath = NormalizePathCandidate(relativePath);
+
         if (IsAbsolutePath(relativePath))
         {
-            return relativePath.Trim();
+            return relativePath;
         }
 
         var separator = DetectSeparator(basePath);
@@ -318,6 +334,108 @@ public sealed class FileIndexController : ControllerBase
         }
 
         return Path.IsPathRooted(path) || LooksLikeWindowsPath(path);
+    }
+
+    private static string NormalizePathCandidate(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return string.Empty;
+        }
+
+        var normalized = path.Trim().Trim('"');
+
+        if (Uri.TryCreate(normalized, UriKind.Absolute, out var uri) && uri.IsFile)
+        {
+            normalized = uri.LocalPath;
+        }
+
+        // Windows extended-length prefix: \\?\C:\folder\file.pdf
+        if (normalized.StartsWith("\\\\?\\", StringComparison.Ordinal))
+        {
+            normalized = normalized[4..];
+        }
+
+        return normalized;
+    }
+
+    private static string? TryResolveCaseInsensitivePath(string fullPath)
+    {
+        var normalizedPath = NormalizePathCandidate(fullPath);
+        if (string.IsNullOrWhiteSpace(normalizedPath))
+        {
+            return null;
+        }
+
+        if (System.IO.File.Exists(normalizedPath))
+        {
+            return normalizedPath;
+        }
+
+        var directory = Path.GetDirectoryName(normalizedPath);
+        var fileName = Path.GetFileName(normalizedPath);
+
+        if (!string.IsNullOrWhiteSpace(directory) && !string.IsNullOrWhiteSpace(fileName) && Directory.Exists(directory))
+        {
+            var matchedPath = Directory
+                .EnumerateFiles(directory)
+                .FirstOrDefault(path => string.Equals(Path.GetFileName(path), fileName, StringComparison.OrdinalIgnoreCase));
+
+            if (!string.IsNullOrWhiteSpace(matchedPath))
+            {
+                return matchedPath;
+            }
+        }
+
+        return TryResolveCaseInsensitiveBySegments(normalizedPath);
+    }
+
+    private static string? TryResolveCaseInsensitiveBySegments(string fullPath)
+    {
+        var root = Path.GetPathRoot(fullPath);
+        if (string.IsNullOrWhiteSpace(root))
+        {
+            return null;
+        }
+
+        var trimmedRoot = root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var remainder = fullPath[root.Length..].Trim(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var segments = remainder
+            .Split(new[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries);
+
+        if (segments.Length == 0)
+        {
+            return Directory.Exists(root) ? root : null;
+        }
+
+        var current = string.IsNullOrWhiteSpace(trimmedRoot) ? root : trimmedRoot;
+
+        for (var i = 0; i < segments.Length; i++)
+        {
+            if (!Directory.Exists(current))
+            {
+                return null;
+            }
+
+            var isLast = i == segments.Length - 1;
+            var candidates = isLast
+                ? Directory.EnumerateFileSystemEntries(current)
+                : Directory.EnumerateDirectories(current);
+
+            var match = candidates.FirstOrDefault(entry => string.Equals(
+                Path.GetFileName(entry),
+                segments[i],
+                StringComparison.OrdinalIgnoreCase));
+
+            if (string.IsNullOrWhiteSpace(match))
+            {
+                return null;
+            }
+
+            current = match;
+        }
+
+        return System.IO.File.Exists(current) ? current : null;
     }
 
     private static string NormalizeRelativePath(string path, char separator)

@@ -238,6 +238,7 @@ const ensureSheetJs = () => {
 const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
     const uploadInputRef = useRef(null);
     const verifyInputRef = useRef(null);
+    const previewLoadMetaRef = useRef({ detailName: '', normalizedPreviewUrl: '', proxyUrl: '', usedProxyFallback: false });
 
     const [productName, setProductName] = useState('');
     const [specificationName, setSpecificationName] = useState('');
@@ -1125,6 +1126,7 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
 
             appendPreviewLog(`Путь, полученный из кэша верификации (previewUrl): ${rawPreviewUrl || '<пусто>'}`);
             appendPreviewLog(`Нормализованный путь из кэша: ${normalizedPreviewUrl || '<пусто>'}`);
+            appendPreviewLog(`Резервный backend proxy URL: ${iframeProxyPreviewUrl}`);
 
             if (!normalizedPreviewUrl) {
                 appendPreviewLog('После нормализации URL оказался пустым.');
@@ -1144,6 +1146,34 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
         }
 
         setIsPreviewDialogOpen(true);
+    }, [appendPreviewLog]);
+
+    const handlePreviewFrameLoad = useCallback(() => {
+        if (!previewDocumentUrl) {
+            return;
+        }
+
+        const loadSource = previewLoadMetaRef.current.usedProxyFallback ? 'backend proxy (fallback)' : 'прямой URL';
+        appendPreviewLog(`iframe успешно загрузился. Источник: ${loadSource}. URL: ${previewDocumentUrl}`);
+    }, [appendPreviewLog, previewDocumentUrl]);
+
+    const handlePreviewFrameError = useCallback(() => {
+        const currentMeta = previewLoadMetaRef.current;
+
+        if (!currentMeta.proxyUrl) {
+            appendPreviewLog('iframe вернул ошибку загрузки, но proxy URL не подготовлен.');
+            return;
+        }
+
+        if (currentMeta.usedProxyFallback) {
+            appendPreviewLog(`Ошибка загрузки даже через backend proxy: ${currentMeta.proxyUrl}`);
+            return;
+        }
+
+        currentMeta.usedProxyFallback = true;
+        previewLoadMetaRef.current = currentMeta;
+        appendPreviewLog(`Прямая загрузка не удалась, переключаюсь на backend proxy: ${currentMeta.proxyUrl}`);
+        setPreviewDocumentUrl(currentMeta.proxyUrl);
     }, [appendPreviewLog]);
 
     return (
@@ -1245,6 +1275,8 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
                                     title={`PDF превью ${previewDetailName}`.trim()}
                                     src={previewDocumentUrl}
                                     className="pdf-preview-frame"
+                                    onLoad={handlePreviewFrameLoad}
+                                    onError={handlePreviewFrameError}
                                 />
                                 <aside className="pdf-preview-log-panel" aria-label="Логи превью PDF">
                                     <h4>Информационная панель</h4>

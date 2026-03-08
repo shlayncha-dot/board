@@ -1,6 +1,6 @@
 {
-  "name": "SLS Planning USER UI",
-  "short_name": "SLS USER",
+  "name": "SLS Planning",
+  "short_name": "SLS Planning",
   "display": "standalone",
   "start_url": "/user-screen",
   "background_color": "#f4f7f6",

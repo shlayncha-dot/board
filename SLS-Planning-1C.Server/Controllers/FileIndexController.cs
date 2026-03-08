@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using SLS_Planning_1C.Server.Features.FileIndexing;
 using SLS_Planning_1C.Server.Features.Verification;
+using System.Net;
 
 namespace SLS_Planning_1C.Server.Controllers;
 
@@ -8,6 +9,8 @@ namespace SLS_Planning_1C.Server.Controllers;
 [Route("api/file-index")]
 public sealed class FileIndexController : ControllerBase
 {
+    private static readonly HttpClient PreviewProxyHttpClient = CreatePreviewProxyHttpClient();
+
     private readonly IFileIndexStore _fileIndexStore;
     private readonly IVerificationSettingsStore _verificationSettingsStore;
     private readonly IVerificationResultCacheStore _verificationResultCacheStore;
@@ -75,7 +78,7 @@ public sealed class FileIndexController : ControllerBase
     }
 
     [HttpGet("drawing-preview")]
-    public IActionResult DrawingPreview([FromQuery] string detailName)
+    public async Task<IActionResult> DrawingPreview([FromQuery] string detailName, CancellationToken cancellationToken)
     {
         var previewLinkResult = ResolveDrawingPreviewLink(detailName);
         if (previewLinkResult.ErrorResult is not null)
@@ -85,14 +88,64 @@ public sealed class FileIndexController : ControllerBase
 
         if (LooksLikeHttpUrl(previewLinkResult.PreviewUrl!))
         {
-            return Redirect(previewLinkResult.PreviewUrl!);
+            return await ProxyHttpPreviewAsync(previewLinkResult.PreviewUrl!, cancellationToken);
         }
 
-        return Ok(new DrawingPreviewLinkResponse
+        var localPath = NormalizePathCandidate(previewLinkResult.PreviewUrl);
+        if (string.IsNullOrWhiteSpace(localPath) || !System.IO.File.Exists(localPath))
         {
-            DetailName = detailName.Trim(),
-            PreviewUrl = previewLinkResult.PreviewUrl!
-        });
+            _logger.LogWarning("Drawing preview local file is missing for detail '{DetailName}'. Path: '{Path}'.", detailName, localPath);
+            return NotFound("Файл не найден");
+        }
+
+        var extension = Path.GetExtension(localPath);
+        var contentType = string.Equals(extension, ".pdf", StringComparison.OrdinalIgnoreCase)
+            ? "application/pdf"
+            : "application/octet-stream";
+
+        return PhysicalFile(localPath, contentType, enableRangeProcessing: true);
+    }
+
+    private async Task<IActionResult> ProxyHttpPreviewAsync(string previewUrl, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, previewUrl);
+            using var response = await PreviewProxyHttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Preview proxy request failed. Url: '{PreviewUrl}', status: {StatusCode}.", previewUrl, (int)response.StatusCode);
+                return StatusCode((int)response.StatusCode, "Не удалось загрузить превью документа.");
+            }
+
+            var contentType = response.Content.Headers.ContentType?.ToString();
+            if (string.IsNullOrWhiteSpace(contentType))
+            {
+                contentType = "application/pdf";
+            }
+
+            var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            return File(stream, contentType, enableRangeProcessing: true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Preview proxy failed for url '{PreviewUrl}'.", previewUrl);
+            return StatusCode((int)HttpStatusCode.BadGateway, "Не удалось загрузить превью документа.");
+        }
+    }
+
+    private static HttpClient CreatePreviewProxyHttpClient()
+    {
+        var handler = new HttpClientHandler
+        {
+            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+        };
+
+        return new HttpClient(handler)
+        {
+            Timeout = TimeSpan.FromSeconds(30)
+        };
     }
 
     [HttpGet("drawing-preview-link")]

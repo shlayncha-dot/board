@@ -1118,17 +1118,19 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
 
             const payload = await response.json();
             const rawPreviewUrl = String(payload.previewUrl ?? '').trim();
-            const nextPreviewUrl = normalizePreviewUrlForBrowser(payload.previewUrl);
+            const normalizedPreviewUrl = normalizePreviewUrlForBrowser(payload.previewUrl);
+            const iframePreviewUrl = `${fileIndexApi.drawingPreview}?detailName=${encodeURIComponent(normalizedDetailName)}`;
 
             appendPreviewLog(`Путь, полученный из кэша верификации (previewUrl): ${rawPreviewUrl || '<пусто>'}`);
-            appendPreviewLog(`Нормализованный путь для iframe: ${nextPreviewUrl || '<пусто>'}`);
+            appendPreviewLog(`Нормализованный путь из кэша: ${normalizedPreviewUrl || '<пусто>'}`);
 
-            if (!nextPreviewUrl) {
+            if (!normalizedPreviewUrl) {
                 appendPreviewLog('После нормализации URL оказался пустым.');
                 throw new Error('Ссылка для превью не найдена.');
             }
 
-            setPreviewDocumentUrl(nextPreviewUrl);
+            appendPreviewLog(`Использую backend proxy для iframe: ${iframePreviewUrl}`);
+            setPreviewDocumentUrl(iframePreviewUrl);
             setPreviewDetailName(normalizedDetailName);
             appendPreviewLog('URL успешно подготовлен. Открываю модальное окно превью.');
         } catch (error) {

@@ -125,8 +125,8 @@ public sealed class FileIndexController : ControllerBase
                 contentType = "application/pdf";
             }
 
-            var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-            return File(stream, contentType, enableRangeProcessing: true);
+            var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+            return File(bytes, contentType, enableRangeProcessing: true);
         }
         catch (Exception ex)
         {

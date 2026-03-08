@@ -98,10 +98,7 @@ const KDCheckView = ({
     generalCheckReport,
     onCloseGeneralCheckReport,
     designationTargetColumnKey,
-    onRequestDrawingPreview,
-    drawingPreviewError,
-    onCloseDrawingPreviewError,
-    onDrawingPreviewError
+    onRequestDrawingPreview
 }) => {
     const [openFilterKey, setOpenFilterKey] = React.useState(null);
     const [pendingFilters, setPendingFilters] = React.useState({});
@@ -156,9 +153,9 @@ const KDCheckView = ({
                 ? error.message
                 : 'Чертеж не найден';
 
-            onDrawingPreviewError(message);
+            alert(message);
         }
-    }, [designationTargetColumnKey, namingTargetColumnKey, onDrawingPreviewError, onRequestDrawingPreview]);
+    }, [designationTargetColumnKey, namingTargetColumnKey, onRequestDrawingPreview]);
 
     React.useEffect(() => {
         const element = tableWrapRef.current;
@@ -580,19 +577,6 @@ const KDCheckView = ({
                                     ))}
                                 </div>
                             )}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {drawingPreviewError && (
-                <div className="verification-report-overlay" onClick={onCloseDrawingPreviewError}>
-                    <div className="verification-report-modal drawing-preview-modal" onClick={(event) => event.stopPropagation()}>
-                        <h3>Не удалось открыть превью</h3>
-                        <p>{drawingPreviewError}</p>
-
-                        <div className="modal-actions">
-                            <button type="button" className="cancel-btn" onClick={onCloseDrawingPreviewError}>Закрыть</button>
                         </div>
                     </div>
                 </div>

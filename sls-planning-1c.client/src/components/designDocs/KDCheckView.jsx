@@ -135,7 +135,7 @@ const KDCheckView = ({
         setSelectedCell({ rowId, columnKey });
     }, []);
 
-    const handleNameCellDoubleClick = React.useCallback(async (row) => {
+    const handleNameCellDoubleClick = React.useCallback((row) => {
         const detailName = String(
             row?.[designationTargetColumnKey]
             ?? row?.[namingTargetColumnKey]
@@ -146,15 +146,7 @@ const KDCheckView = ({
             return;
         }
 
-        try {
-            await onRequestDrawingPreview(detailName);
-        } catch (error) {
-            const message = error instanceof Error
-                ? error.message
-                : 'Чертеж не найден';
-
-            alert(message);
-        }
+        onRequestDrawingPreview(detailName);
     }, [designationTargetColumnKey, namingTargetColumnKey, onRequestDrawingPreview]);
 
     React.useEffect(() => {

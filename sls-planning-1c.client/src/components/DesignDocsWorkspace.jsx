@@ -3,7 +3,7 @@ import SpecificationUploadView from './designDocs/SpecificationUploadView';
 import SpecificationListView from './designDocs/SpecificationListView';
 import KDCheckView from './designDocs/KDCheckView';
 import DesignDocsSettingsView from './designDocs/DesignDocsSettingsView';
-import { fileIndexApi, specificationUploadApi, verificationApi } from '../config/apiConfig';
+import { specificationUploadApi, verificationApi } from '../config/apiConfig';
 import { extractRowsForNamingCheck } from '../services/namingCheckService';
 
 const sampleSpecs = [];
@@ -248,6 +248,7 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
     const [namingLogs, setNamingLogs] = useState([]);
     const [isNamingLogOpen, setIsNamingLogOpen] = useState(false);
     const [generalCheckReport, setGeneralCheckReport] = useState(null);
+    const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
 
     const appendNamingLog = useCallback((message) => {
         setNamingLogs((prevState) => [...prevState, message]);
@@ -1060,27 +1061,15 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
         setSpecificationSettings({ ...savedSpecificationSettings });
     };
 
-    const handleDrawingPreviewRequest = useCallback(async (detailName) => {
+    const handleDrawingPreviewRequest = useCallback((detailName) => {
         const normalizedDetailName = String(detailName ?? '').trim();
 
         if (!normalizedDetailName) {
             return;
         }
 
-        const previewWindow = window.open('', '_blank', 'noopener,noreferrer');
-
-        if (!previewWindow) {
-            throw new Error('Браузер заблокировал открытие новой вкладки. Разрешите pop-up для сайта.');
-        }
-
-        try {
-            const query = new URLSearchParams({ detailName: normalizedDetailName });
-            const drawingPreviewUrl = `${fileIndexApi.drawingPreview}?${query.toString()}`;
-            previewWindow.location.replace(drawingPreviewUrl);
-        } catch (error) {
-            previewWindow.close();
-            throw error;
-        }
+        console.log('Файл не выбран');
+        setIsPreviewDialogOpen(true);
     }, []);
 
     return (
@@ -1166,6 +1155,26 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
                     onCancel={handleCancelSettings}
                 />
             </div>
+
+            {isPreviewDialogOpen && (
+                <div className="verification-report-overlay" role="dialog" aria-modal="true" aria-label="Превью PDF документа">
+                    <div className="verification-report-modal pdf-preview-modal">
+                        <div className="verification-report-header">
+                            <h3>Превью PDF</h3>
+                            <div className="verification-report-actions">
+                                <button type="button" onClick={() => setIsPreviewDialogOpen(false)}>Закрыть</button>
+                            </div>
+                        </div>
+                        <div className="verification-report-body pdf-preview-body">
+                            <iframe
+                                title="PDF превью"
+                                src="about:blank"
+                                className="pdf-preview-frame"
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     );
 };

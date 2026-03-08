@@ -36,11 +36,17 @@ public sealed class PreviewGatewayWorker : BackgroundService
         }
 
         var prefix = EnsurePrefix(_options.PreviewGatewayPrefix);
-        _listener = new HttpListener();
-        _listener.Prefixes.Add(prefix);
-        _listener.Start();
+        if (!TryStartListener(prefix, out var startedPrefix, out var startException))
+        {
+            _logger.LogWarning(startException,
+                "Preview gateway is disabled because HttpListener could not start on {Prefix}. " +
+                "If you need external access, reserve URL ACL (for example: netsh http add urlacl url={Prefix} user=DOMAIN\\user).",
+                prefix);
 
-        _logger.LogInformation("Preview gateway started on {Prefix}. Allowed roots: {Roots}", prefix, string.Join(", ", _allowedRoots));
+            return Task.CompletedTask;
+        }
+
+        _logger.LogInformation("Preview gateway started on {Prefix}. Allowed roots: {Roots}", startedPrefix, string.Join(", ", _allowedRoots));
         return base.StartAsync(cancellationToken);
     }
 
@@ -250,7 +256,7 @@ public sealed class PreviewGatewayWorker : BackgroundService
     private static string EnsurePrefix(string? rawPrefix)
     {
         var prefix = string.IsNullOrWhiteSpace(rawPrefix)
-            ? "http://+:5001/"
+            ? "http://localhost:5001/"
             : rawPrefix.Trim();
 
         if (!prefix.EndsWith('/'))
@@ -259,6 +265,80 @@ public sealed class PreviewGatewayWorker : BackgroundService
         }
 
         return prefix;
+    }
+
+    private bool TryStartListener(string primaryPrefix, out string startedPrefix, out Exception? startException)
+    {
+        startedPrefix = primaryPrefix;
+        startException = null;
+        Exception? fallbackException = null;
+
+        if (TryStartWithPrefix(primaryPrefix, out var exception))
+        {
+            return true;
+        }
+
+        if (exception is HttpListenerException { ErrorCode: 5 } &&
+            TryGetLocalhostFallbackPrefix(primaryPrefix, out var fallbackPrefix) &&
+            !string.Equals(primaryPrefix, fallbackPrefix, StringComparison.OrdinalIgnoreCase) &&
+            TryStartWithPrefix(fallbackPrefix, out fallbackException))
+        {
+            startedPrefix = fallbackPrefix;
+            _logger.LogWarning(exception,
+                "Preview gateway failed to start on {PrimaryPrefix} due to access denied. Falling back to {FallbackPrefix}.",
+                primaryPrefix,
+                fallbackPrefix);
+            return true;
+        }
+
+        startException = fallbackException ?? exception ?? new InvalidOperationException("Failed to start preview gateway listener.");
+        return false;
+    }
+
+    private bool TryStartWithPrefix(string prefix, out Exception? exception)
+    {
+        exception = null;
+        HttpListener? listener = null;
+
+        try
+        {
+            listener = new HttpListener();
+            listener.Prefixes.Add(prefix);
+            listener.Start();
+            _listener = listener;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            exception = ex;
+            listener?.Close();
+            _listener = null;
+            return false;
+        }
+    }
+
+    private static bool TryGetLocalhostFallbackPrefix(string prefix, out string fallbackPrefix)
+    {
+        fallbackPrefix = prefix;
+
+        if (!Uri.TryCreate(prefix, UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        if (!string.Equals(uri.Host, "+", StringComparison.Ordinal) &&
+            !string.Equals(uri.Host, "*", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var builder = new UriBuilder(uri)
+        {
+            Host = "localhost"
+        };
+
+        fallbackPrefix = builder.Uri.AbsoluteUri;
+        return true;
     }
 
     private static string GetContentTypeByExtension(string extension)

@@ -33,7 +33,9 @@ dotnet publish ./WindowsIndexer.Worker.csproj -c Release -r win-x64 --self-conta
 
 ## Конфигурация preview-gateway
 - `enablePreviewGateway` — включает встроенный HTTP endpoint для превью.
-- `previewGatewayPrefix` — префикс `HttpListener`, например `http://+:5001/`.
+- `previewGatewayPrefix` — префикс `HttpListener`, по умолчанию `http://localhost:5001/`.
+  - Для внешнего доступа можно указать `http://+:5001/`, но в этом случае нужен URL ACL (`netsh http add urlacl ...`).
+  - Если wildcard-префикс не удалось открыть из-за прав, worker автоматически попробует fallback на `localhost`.
 - `previewAllowedRoots` — список корневых папок, из которых можно читать документы.
 - `previewAllowedOrigin` — CORS origin для браузера (`https://sls-planning.omnic.pro`).
 - `previewApiKey` — optional ключ (header `X-Preview-Key` или query `key`).

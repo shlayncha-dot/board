@@ -41,7 +41,12 @@ var options = new IndexerOptions
     EmitCycleLogs = parsed.EmitCycleLogs,
     StateDbFileName = parsed.StateDbFileName,
     Auth = parsed.Auth,
-    IncludeExtensions = parsed.IncludeExtensions
+    IncludeExtensions = parsed.IncludeExtensions,
+    EnablePreviewGateway = parsed.EnablePreviewGateway,
+    PreviewGatewayPrefix = parsed.PreviewGatewayPrefix,
+    PreviewAllowedRoots = parsed.PreviewAllowedRoots,
+    PreviewAllowedOrigin = parsed.PreviewAllowedOrigin,
+    PreviewApiKey = parsed.PreviewApiKey
 };
 
 using var host = Host.CreateDefaultBuilder(args)
@@ -57,6 +62,7 @@ using var host = Host.CreateDefaultBuilder(args)
             return new StateRepository(dbPath);
         });
         services.AddHostedService<IndexerWorker>();
+        services.AddHostedService<PreviewGatewayWorker>();
     })
     .Build();
 

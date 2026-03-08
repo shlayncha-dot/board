@@ -19,6 +19,13 @@ public sealed class IndexerOptions
     public string StateDbFileName { get; init; } = ".indexer-state.db";
     public AuthOptions? Auth { get; init; }
     public IReadOnlyList<string>? IncludeExtensions { get; init; }
+
+    // Embedded preview gateway settings
+    public bool EnablePreviewGateway { get; init; } = false;
+    public string PreviewGatewayPrefix { get; init; } = "http://+:5001/";
+    public IReadOnlyList<string>? PreviewAllowedRoots { get; init; }
+    public string? PreviewAllowedOrigin { get; init; }
+    public string? PreviewApiKey { get; init; }
 }
 
 public sealed class AuthOptions

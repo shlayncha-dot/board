@@ -206,6 +206,11 @@ const normalizePreviewUrlForBrowser = (rawUrl) => {
     return value;
 };
 
+const formatPreviewLogLine = (message) => {
+    const timestamp = new Date().toLocaleTimeString('ru-RU', { hour12: false });
+    return `[${timestamp}] ${message}`;
+};
+
 const ensureSheetJs = () => {
     if (window.XLSX) {
         return Promise.resolve(window.XLSX);
@@ -270,6 +275,11 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
     const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
     const [previewDocumentUrl, setPreviewDocumentUrl] = useState('about:blank');
     const [previewDetailName, setPreviewDetailName] = useState('');
+    const [previewLogs, setPreviewLogs] = useState([]);
+
+    const appendPreviewLog = useCallback((message) => {
+        setPreviewLogs((prevState) => [...prevState, formatPreviewLogLine(message)]);
+    }, []);
 
     const appendNamingLog = useCallback((message) => {
         setNamingLogs((prevState) => [...prevState, message]);
@@ -1089,30 +1099,46 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
             return;
         }
 
+        const requestUrl = `${fileIndexApi.drawingPreviewLink}?detailName=${encodeURIComponent(normalizedDetailName)}`;
+        setPreviewLogs([
+            formatPreviewLogLine('Инициализация превью PDF.'),
+            formatPreviewLogLine(`Запрошенная деталь: ${normalizedDetailName}`),
+            formatPreviewLogLine(`URL запроса ссылки превью: ${requestUrl}`)
+        ]);
+
         try {
-            const response = await fetch(`${fileIndexApi.drawingPreviewLink}?detailName=${encodeURIComponent(normalizedDetailName)}`);
+            const response = await fetch(requestUrl);
+            appendPreviewLog(`HTTP статус получения ссылки: ${response.status} ${response.statusText}`);
 
             if (!response.ok) {
                 const message = await response.text();
+                appendPreviewLog(`Ошибка ответа backend: ${message || 'пустой текст ошибки.'}`);
                 throw new Error(message || 'Не удалось получить ссылку на PDF для превью.');
             }
 
             const payload = await response.json();
+            const rawPreviewUrl = String(payload.previewUrl ?? '').trim();
             const nextPreviewUrl = normalizePreviewUrlForBrowser(payload.previewUrl);
 
+            appendPreviewLog(`Путь, полученный из кэша верификации (previewUrl): ${rawPreviewUrl || '<пусто>'}`);
+            appendPreviewLog(`Нормализованный путь для iframe: ${nextPreviewUrl || '<пусто>'}`);
+
             if (!nextPreviewUrl) {
+                appendPreviewLog('После нормализации URL оказался пустым.');
                 throw new Error('Ссылка для превью не найдена.');
             }
 
             setPreviewDocumentUrl(nextPreviewUrl);
             setPreviewDetailName(normalizedDetailName);
+            appendPreviewLog('URL успешно подготовлен. Открываю модальное окно превью.');
         } catch (error) {
+            appendPreviewLog(`Итоговая ошибка открытия превью: ${error instanceof Error ? error.message : 'неизвестная ошибка'}`);
             alert(error instanceof Error ? error.message : 'Не удалось открыть превью PDF.');
             return;
         }
 
         setIsPreviewDialogOpen(true);
-    }, []);
+    }, [appendPreviewLog]);
 
     return (
         <>
@@ -1204,16 +1230,31 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
                         <div className="verification-report-header">
                             <h3>Превью PDF</h3>
                             <div className="verification-report-actions">
-                                <button type="button" onClick={() => window.open(previewDocumentUrl, '_blank', 'noopener,noreferrer')}>Открыть в новой вкладке</button>
                                 <button type="button" onClick={() => setIsPreviewDialogOpen(false)}>Закрыть</button>
                             </div>
                         </div>
                         <div className="verification-report-body pdf-preview-body">
-                            <iframe
-                                title={`PDF превью ${previewDetailName}`.trim()}
-                                src={previewDocumentUrl}
-                                className="pdf-preview-frame"
-                            />
+                            <div className="pdf-preview-content">
+                                <iframe
+                                    title={`PDF превью ${previewDetailName}`.trim()}
+                                    src={previewDocumentUrl}
+                                    className="pdf-preview-frame"
+                                />
+                                <aside className="pdf-preview-log-panel" aria-label="Логи превью PDF">
+                                    <h4>Информационная панель</h4>
+                                    <p><strong>Деталь:</strong> {previewDetailName || '—'}</p>
+                                    <p><strong>Текущий URL превью:</strong> {previewDocumentUrl || '—'}</p>
+                                    <div className="pdf-preview-log-list">
+                                        {previewLogs.length === 0 ? (
+                                            <p>Логи пока отсутствуют.</p>
+                                        ) : (
+                                            previewLogs.map((line, index) => (
+                                                <p key={`${line}-${index}`}>{line}</p>
+                                            ))
+                                        )}
+                                    </div>
+                                </aside>
+                            </div>
                         </div>
                     </div>
                 </div>

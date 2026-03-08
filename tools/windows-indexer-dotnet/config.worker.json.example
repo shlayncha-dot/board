@@ -15,6 +15,11 @@
   "emitCycleLogs": true,
   "stateDbFileName": ".indexer-state.db",
   "includeExtensions": [".pdf", ".dxf"],
+  "enablePreviewGateway": true,
+  "previewGatewayPrefix": "http://+:5001/",
+  "previewAllowedRoots": ["C:/PilotGroup"],
+  "previewAllowedOrigin": "https://sls-planning.omnic.pro",
+  "previewApiKey": "<preview_key>",
   "auth": {
     "apiKeyHeader": "X-API-Key",
     "apiKey": "<your_key>"

@@ -192,6 +192,11 @@ public sealed class FileIndexController : ControllerBase
             return string.Empty;
         }
 
+        if (LooksLikeHttpUrl(normalizedVerificationPath))
+        {
+            return normalizedVerificationPath;
+        }
+
         if (IsAbsolutePath(normalizedVerificationPath))
         {
             return normalizedVerificationPath;

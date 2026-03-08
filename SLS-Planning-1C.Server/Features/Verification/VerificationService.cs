@@ -238,7 +238,7 @@ public sealed class VerificationService : IVerificationService
 
         if (IsAbsoluteHttpUrl(normalizedRoot))
         {
-            return CombineHttpPath(normalizedRoot, normalizedRelativePath);
+            return BuildGatewayDocumentUrl(normalizedRoot, normalizedRelativePath);
         }
 
         normalizedRoot = normalizedRoot.TrimEnd('\\');
@@ -259,6 +259,13 @@ public sealed class VerificationService : IVerificationService
             .TrimStart('/');
 
         return $"{normalizedRoot}/{normalizedRelative}";
+    }
+
+    private static string BuildGatewayDocumentUrl(string gatewayRoot, string relativePath)
+    {
+        var relativePathForQuery = relativePath.Replace('\\', '/');
+        var encodedRelativePath = Uri.EscapeDataString(relativePathForQuery);
+        return $"{CombineHttpPath(gatewayRoot, "pdf")}?relativePath={encodedRelativePath}";
     }
 
     private static bool IsAbsoluteHttpUrl(string path)

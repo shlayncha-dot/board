@@ -1120,9 +1120,9 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
             const payload = await response.json();
             const rawPreviewUrl = String(payload.previewUrl ?? '').trim();
             const normalizedPreviewUrl = normalizePreviewUrlForBrowser(payload.previewUrl);
-            const iframeProxyUrl = `${fileIndexApi.drawingPreview}?detailName=${encodeURIComponent(normalizedDetailName)}`;
+            const iframeProxyPreviewUrl = `${fileIndexApi.drawingPreview}?detailName=${encodeURIComponent(normalizedDetailName)}`;
             const canUseDirectPreview = /^https?:\/\//i.test(normalizedPreviewUrl);
-            const iframePreviewUrl = canUseDirectPreview ? normalizedPreviewUrl : iframeProxyUrl;
+            const iframePreviewUrl = canUseDirectPreview ? normalizedPreviewUrl : iframeProxyPreviewUrl;
 
             appendPreviewLog(`Путь, полученный из кэша верификации (previewUrl): ${rawPreviewUrl || '<пусто>'}`);
             appendPreviewLog(`Нормализованный путь из кэша: ${normalizedPreviewUrl || '<пусто>'}`);

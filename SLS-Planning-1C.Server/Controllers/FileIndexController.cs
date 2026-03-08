@@ -83,188 +83,71 @@ public sealed class FileIndexController : ControllerBase
             return BadRequest("detailName is required.");
         }
 
-        var linkServer = _verificationSettingsStore.Get().SpecificationSettings.LinkServer;
-        var cachedPdfCandidates = GetCachedPdfCandidates(detailName).ToList();
-        var existingCachedPath = FindExistingPath(cachedPdfCandidates);
-        if (!string.IsNullOrWhiteSpace(existingCachedPath))
+        if (!_verificationResultCacheStore.HasVerificationSnapshot())
         {
-            _logger.LogInformation("Drawing preview file resolved from verification cache for detail '{DetailName}': '{ResolvedPath}'.", detailName, existingCachedPath);
-
-            var cachedContentType = ResolveContentType(Path.GetExtension(existingCachedPath));
-            Response.Headers.Append("X-Drawing-Path", existingCachedPath);
-            Response.Headers.Append("X-Drawing-FileName", Path.GetFileName(existingCachedPath));
-
-            return PhysicalFile(existingCachedPath, cachedContentType, enableRangeProcessing: true);
+            _logger.LogWarning("Drawing preview request rejected for detail '{DetailName}': verification was not executed yet.", detailName);
+            return BadRequest("Сначала сделайте верификацию");
         }
 
-        var matches = FindPreviewMatches(detailName).ToList();
+        var linkServer = _verificationSettingsStore.Get().SpecificationSettings.LinkServer;
+        var cachedPdfCandidates = GetCachedPdfCandidates(detailName, linkServer).ToList();
+        var primaryCachedCandidate = cachedPdfCandidates.FirstOrDefault();
 
-        _logger.LogInformation(
-            "Drawing preview request for detail '{DetailName}'. LinkServer: '{LinkServer}'. Match count: {MatchCount}.",
-            detailName,
-            string.IsNullOrWhiteSpace(linkServer) ? "<empty>" : linkServer,
-            matches.Count);
+        if (string.IsNullOrWhiteSpace(primaryCachedCandidate))
+        {
+            _logger.LogWarning("Drawing preview file is missing in verification cache for detail '{DetailName}'.", detailName);
+            return NotFound("Файл не найден");
+        }
 
-        var candidates = matches
-            .SelectMany(match => GetPathCandidates(match, linkServer))
-            .Concat(GetCandidatesWithoutIndex(detailName, linkServer))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        if (matches.Count == 0)
+        var existingCachedPath = FindExistingPath([primaryCachedCandidate]);
+        if (string.IsNullOrWhiteSpace(existingCachedPath))
         {
             _logger.LogWarning(
-                "Drawing preview not found in index for detail '{DetailName}'. Fallback candidates count: {CandidateCount}.",
+                "Drawing preview file from verification cache does not exist on disk for detail '{DetailName}'. Candidate: '{CandidatePath}'.",
                 detailName,
-                candidates.Count);
+                primaryCachedCandidate);
+
+            return NotFound($"Файл не найден. Проверенный путь: {primaryCachedCandidate}");
         }
 
-        foreach (var candidate in candidates)
-        {
-            _logger.LogInformation(
-                "Drawing preview candidate for detail '{DetailName}': '{CandidatePath}'. Exists: {Exists}.",
-                detailName,
-                candidate,
-                System.IO.File.Exists(NormalizePathCandidate(candidate)));
-        }
+        _logger.LogInformation("Drawing preview file resolved from verification cache for detail '{DetailName}': '{ResolvedPath}'.", detailName, existingCachedPath);
 
-        var existingPath = FindExistingPath(candidates);
+        var cachedContentType = ResolveContentType(Path.GetExtension(existingCachedPath));
+        Response.Headers.Append("X-Drawing-Path", existingCachedPath);
+        Response.Headers.Append("X-Drawing-FileName", Path.GetFileName(existingCachedPath));
 
-        if (string.IsNullOrWhiteSpace(existingPath))
-        {
-            _logger.LogWarning("Drawing preview file not found on disk for detail '{DetailName}'.", detailName);
-            var candidatesText = candidates.Count > 0
-                ? string.Join("; ", candidates)
-                : "нет доступных путей";
-
-            return NotFound($"Чертеж не найден. Проверенные пути: {candidatesText}");
-        }
-
-        _logger.LogInformation("Drawing preview file resolved for detail '{DetailName}': '{ResolvedPath}'.", detailName, existingPath);
-
-        var contentType = ResolveContentType(Path.GetExtension(existingPath));
-        Response.Headers.Append("X-Drawing-Path", existingPath);
-        Response.Headers.Append("X-Drawing-FileName", Path.GetFileName(existingPath));
-
-        return PhysicalFile(existingPath, contentType, enableRangeProcessing: true);
+        return PhysicalFile(existingCachedPath, cachedContentType, enableRangeProcessing: true);
     }
 
 
-    private IEnumerable<string> GetCachedPdfCandidates(string detailName)
+    private IEnumerable<string> GetCachedPdfCandidates(string detailName, string? linkServer)
     {
         var normalizedName = detailName.Trim();
         foreach (var candidate in _verificationResultCacheStore.GetPdfPaths(normalizedName))
         {
-            yield return candidate;
-        }
-
-        var fallbackName = NormalizeType1DetailName(normalizedName);
-        if (string.Equals(fallbackName, normalizedName, StringComparison.OrdinalIgnoreCase))
-        {
-            yield break;
-        }
-
-        foreach (var candidate in _verificationResultCacheStore.GetPdfPaths(fallbackName))
-        {
-            yield return candidate;
+            yield return BuildVerificationPathCandidate(candidate, linkServer);
         }
     }
 
-    private IEnumerable<IndexedFileMatch> FindPreviewMatches(string detailName)
+    private static string BuildVerificationPathCandidate(string verificationPath, string? linkServer)
     {
-        var exactMatches = _fileIndexStore
-            .FindByDetailName(detailName)
-            .Where(IsPdfMatch)
-            .ToList();
-
-        foreach (var exact in exactMatches)
+        var normalizedVerificationPath = NormalizePathCandidate(verificationPath);
+        if (string.IsNullOrWhiteSpace(normalizedVerificationPath))
         {
-            yield return exact;
+            return string.Empty;
         }
 
-        var normalizedType1Name = NormalizeType1DetailName(detailName);
-        if (string.Equals(normalizedType1Name, detailName, StringComparison.OrdinalIgnoreCase))
+        if (IsAbsolutePath(normalizedVerificationPath))
         {
-            yield break;
+            return normalizedVerificationPath;
         }
 
-        _logger.LogInformation(
-            "Drawing preview fallback applied. Requested detail '{DetailName}' resolved to '{NormalizedDetailName}'.",
-            detailName,
-            normalizedType1Name);
-
-        foreach (var fallback in _fileIndexStore.FindByDetailName(normalizedType1Name).Where(IsPdfMatch))
+        if (string.IsNullOrWhiteSpace(linkServer))
         {
-            yield return fallback;
-        }
-    }
-
-    private static string NormalizeType1DetailName(string detailName)
-    {
-        var normalized = detailName.Trim();
-        var dashIndex = normalized.LastIndexOf('-');
-        var lastDotIndex = normalized.LastIndexOf('.');
-
-        if (dashIndex > lastDotIndex)
-        {
-            normalized = normalized[..dashIndex].Trim();
+            return normalizedVerificationPath;
         }
 
-        return normalized;
-    }
-
-    private static IEnumerable<string> GetPathCandidates(IndexedFileMatch match, string? linkServer)
-    {
-        var rawRelativePath = NormalizePathCandidate(match.File.RelativePath);
-        var yielded = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        if (IsAbsolutePath(rawRelativePath))
-        {
-            var absoluteCandidate = NormalizePathCandidate(rawRelativePath);
-            if (!string.IsNullOrWhiteSpace(absoluteCandidate) && yielded.Add(absoluteCandidate))
-            {
-                yield return absoluteCandidate;
-            }
-        }
-
-        if (!string.IsNullOrWhiteSpace(linkServer))
-        {
-            var linkServerCandidate = CombinePath(linkServer, rawRelativePath);
-            if (!string.IsNullOrWhiteSpace(linkServerCandidate) && yielded.Add(linkServerCandidate))
-            {
-                yield return linkServerCandidate;
-            }
-        }
-
-        if (!string.IsNullOrWhiteSpace(match.RootPath))
-        {
-            var snapshotRootCandidate = CombinePath(match.RootPath, rawRelativePath);
-            if (!string.IsNullOrWhiteSpace(snapshotRootCandidate) && yielded.Add(snapshotRootCandidate))
-            {
-                yield return snapshotRootCandidate;
-            }
-        }
-    }
-
-    private static IEnumerable<string> GetCandidatesWithoutIndex(string detailName, string? linkServer)
-    {
-        var normalizedName = detailName.Trim();
-        var fallbackName = NormalizeType1DetailName(normalizedName);
-        var fileNames = new[]
-        {
-            $"{normalizedName}.pdf",
-            $"{fallbackName}.pdf"
-        }
-        .Distinct(StringComparer.OrdinalIgnoreCase)
-        .ToList();
-
-        if (!string.IsNullOrWhiteSpace(linkServer))
-        {
-            foreach (var fileName in fileNames)
-            {
-                yield return CombinePath(linkServer, fileName);
-            }
-        }
+        return CombinePath(linkServer, normalizedVerificationPath);
     }
 
     private static string? FindExistingPath(IEnumerable<string> candidates)
@@ -290,12 +173,6 @@ public sealed class FileIndexController : ControllerBase
         }
 
         return null;
-    }
-
-    private static bool IsPdfMatch(IndexedFileMatch match)
-    {
-        return string.Equals(match.File.Extension, ".pdf", StringComparison.OrdinalIgnoreCase)
-               || string.Equals(Path.GetExtension(match.File.FileName), ".pdf", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string CombinePath(string basePath, string relativePath)

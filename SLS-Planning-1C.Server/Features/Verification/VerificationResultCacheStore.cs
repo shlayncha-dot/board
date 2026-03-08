@@ -5,12 +5,14 @@ public interface IVerificationResultCacheStore
     void ReplaceAll(IEnumerable<VerifiedDetailCacheEntry> entries);
     IReadOnlyList<string> GetPdfPaths(string detailName);
     IReadOnlyList<string> GetDxfPaths(string detailName);
+    bool HasVerificationSnapshot();
 }
 
 public sealed class VerificationResultCacheStore : IVerificationResultCacheStore
 {
     private readonly object _sync = new();
     private Dictionary<string, VerifiedDetailCacheEntry> _entries = new(StringComparer.OrdinalIgnoreCase);
+    private bool _hasVerificationSnapshot;
 
     public void ReplaceAll(IEnumerable<VerifiedDetailCacheEntry> entries)
     {
@@ -25,6 +27,15 @@ public sealed class VerificationResultCacheStore : IVerificationResultCacheStore
         lock (_sync)
         {
             _entries = normalizedEntries;
+            _hasVerificationSnapshot = true;
+        }
+    }
+
+    public bool HasVerificationSnapshot()
+    {
+        lock (_sync)
+        {
+            return _hasVerificationSnapshot;
         }
     }
 

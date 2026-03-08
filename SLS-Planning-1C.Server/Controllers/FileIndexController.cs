@@ -260,7 +260,20 @@ public sealed class FileIndexController : ControllerBase
             return normalizedVerificationPath;
         }
 
+        if (LooksLikeHttpUrl(linkServer))
+        {
+            return BuildGatewayDocumentUrl(linkServer, normalizedVerificationPath);
+        }
+
         return CombinePath(linkServer, normalizedVerificationPath);
+    }
+
+    private static string BuildGatewayDocumentUrl(string gatewayRoot, string relativePath)
+    {
+        var normalizedRoot = gatewayRoot.TrimEnd('/');
+        var relativePathForQuery = relativePath.Replace('\\', '/').TrimStart('/');
+        var encodedRelativePath = Uri.EscapeDataString(relativePathForQuery);
+        return $"{normalizedRoot}/pdf?relativePath={encodedRelativePath}";
     }
 
     private static string? FindPreviewUrlCandidate(IEnumerable<string> candidates)

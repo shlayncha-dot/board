@@ -82,7 +82,7 @@ const DesignDocsSettingsView = ({
                             type="text"
                             value={specificationSettings.linkServer}
                             onChange={(event) => onSpecificationSettingChange('linkServer', event.target.value)}
-                            placeholder={"\\192.168.1.193\\PilotGroup  или  http://192.168.1.193:8080/files"}
+                            placeholder={"\\192.168.1.193\\PilotGroup  или  http://192.168.1.193:5001"}
                         />
                     </label>
                 </div>

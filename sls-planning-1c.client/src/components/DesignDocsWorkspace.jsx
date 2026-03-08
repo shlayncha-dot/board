@@ -3,7 +3,7 @@ import SpecificationUploadView from './designDocs/SpecificationUploadView';
 import SpecificationListView from './designDocs/SpecificationListView';
 import KDCheckView from './designDocs/KDCheckView';
 import DesignDocsSettingsView from './designDocs/DesignDocsSettingsView';
-import { specificationUploadApi, verificationApi } from '../config/apiConfig';
+import { fileIndexApi, specificationUploadApi, verificationApi } from '../config/apiConfig';
 import { extractRowsForNamingCheck } from '../services/namingCheckService';
 
 const sampleSpecs = [];
@@ -187,6 +187,25 @@ const getAssemblyChildRowIds = (rows, positionColumnKey, parentPosition) => {
         .map((row) => row.id);
 };
 
+
+const normalizePreviewUrlForBrowser = (rawUrl) => {
+    const value = String(rawUrl ?? '').trim();
+
+    if (!value) {
+        return '';
+    }
+
+    if (value.startsWith('\\')) {
+        const uncPath = value
+            .replace(/^\\+/, '')
+            .replace(/\\/g, '/');
+
+        return `file://${uncPath}`;
+    }
+
+    return value;
+};
+
 const ensureSheetJs = () => {
     if (window.XLSX) {
         return Promise.resolve(window.XLSX);
@@ -249,6 +268,8 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
     const [isNamingLogOpen, setIsNamingLogOpen] = useState(false);
     const [generalCheckReport, setGeneralCheckReport] = useState(null);
     const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
+    const [previewDocumentUrl, setPreviewDocumentUrl] = useState('about:blank');
+    const [previewDetailName, setPreviewDetailName] = useState('');
 
     const appendNamingLog = useCallback((message) => {
         setNamingLogs((prevState) => [...prevState, message]);
@@ -1061,14 +1082,35 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
         setSpecificationSettings({ ...savedSpecificationSettings });
     };
 
-    const handleDrawingPreviewRequest = useCallback((detailName) => {
+    const handleDrawingPreviewRequest = useCallback(async (detailName) => {
         const normalizedDetailName = String(detailName ?? '').trim();
 
         if (!normalizedDetailName) {
             return;
         }
 
-        console.log('Файл не выбран');
+        try {
+            const response = await fetch(`${fileIndexApi.drawingPreviewLink}?detailName=${encodeURIComponent(normalizedDetailName)}`);
+
+            if (!response.ok) {
+                const message = await response.text();
+                throw new Error(message || 'Не удалось получить ссылку на PDF для превью.');
+            }
+
+            const payload = await response.json();
+            const nextPreviewUrl = normalizePreviewUrlForBrowser(payload.previewUrl);
+
+            if (!nextPreviewUrl) {
+                throw new Error('Ссылка для превью не найдена.');
+            }
+
+            setPreviewDocumentUrl(nextPreviewUrl);
+            setPreviewDetailName(normalizedDetailName);
+        } catch (error) {
+            alert(error instanceof Error ? error.message : 'Не удалось открыть превью PDF.');
+            return;
+        }
+
         setIsPreviewDialogOpen(true);
     }, []);
 
@@ -1162,13 +1204,14 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
                         <div className="verification-report-header">
                             <h3>Превью PDF</h3>
                             <div className="verification-report-actions">
+                                <button type="button" onClick={() => window.open(previewDocumentUrl, '_blank', 'noopener,noreferrer')}>Открыть в новой вкладке</button>
                                 <button type="button" onClick={() => setIsPreviewDialogOpen(false)}>Закрыть</button>
                             </div>
                         </div>
                         <div className="verification-report-body pdf-preview-body">
                             <iframe
-                                title="PDF превью"
-                                src="about:blank"
+                                title={`PDF превью ${previewDetailName}`.trim()}
+                                src={previewDocumentUrl}
                                 className="pdf-preview-frame"
                             />
                         </div>

@@ -219,31 +219,56 @@ public sealed class VerificationService : IVerificationService
 
     private static string BuildIssuePath(string? relativePath, string? linkServer)
     {
-        var normalizedRelativePath = NormalizeWindowsPath(relativePath);
+        var normalizedRelativePath = NormalizePath(relativePath);
         if (string.IsNullOrWhiteSpace(normalizedRelativePath))
         {
             return string.Empty;
         }
 
-        if (IsWindowsRootedPath(normalizedRelativePath) || string.IsNullOrWhiteSpace(linkServer))
+        if (IsAbsoluteHttpUrl(normalizedRelativePath) || IsWindowsRootedPath(normalizedRelativePath) || string.IsNullOrWhiteSpace(linkServer))
         {
             return normalizedRelativePath;
         }
 
-        var normalizedRoot = NormalizeWindowsPath(linkServer).TrimEnd('\\');
+        var normalizedRoot = NormalizePath(linkServer);
         if (string.IsNullOrWhiteSpace(normalizedRoot))
         {
             return normalizedRelativePath;
         }
 
+        if (IsAbsoluteHttpUrl(normalizedRoot))
+        {
+            return CombineHttpPath(normalizedRoot, normalizedRelativePath);
+        }
+
+        normalizedRoot = normalizedRoot.TrimEnd('\\');
+
         return $"{normalizedRoot}\\{normalizedRelativePath.TrimStart('\\')}";
     }
 
-    private static string NormalizeWindowsPath(string? path)
+    private static string NormalizePath(string? path)
     {
-        return (path ?? string.Empty)
-            .Trim()
-            .Replace('/', '\\');
+        return (path ?? string.Empty).Trim();
+    }
+
+    private static string CombineHttpPath(string httpRoot, string relativePath)
+    {
+        var normalizedRoot = httpRoot.TrimEnd('/');
+        var normalizedRelative = relativePath
+            .Replace('\\', '/')
+            .TrimStart('/');
+
+        return $"{normalizedRoot}/{normalizedRelative}";
+    }
+
+    private static bool IsAbsoluteHttpUrl(string path)
+    {
+        if (!Uri.TryCreate(path, UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        return uri.Scheme is Uri.UriSchemeHttp or Uri.UriSchemeHttps;
     }
 
     private static bool IsWindowsRootedPath(string path)

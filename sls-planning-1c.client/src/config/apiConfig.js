@@ -7,7 +7,8 @@ export const verificationApi = {
 };
 
 export const fileIndexApi = {
-    drawingPreview: '/api/file-index/drawing-preview'
+    drawingPreview: '/api/file-index/drawing-preview',
+    drawingPreviewLink: '/api/file-index/drawing-preview-link'
 };
 
 export const specificationUploadApi = {

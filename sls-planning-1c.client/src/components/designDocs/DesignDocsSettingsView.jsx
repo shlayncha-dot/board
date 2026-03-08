@@ -77,12 +77,12 @@ const DesignDocsSettingsView = ({
                 <h2>Link Server</h2>
                 <div className="specification-grid">
                     <label>
-                        <span>Путь к сетевой папке (UNC)</span>
+                        <span>Адрес к файлам (UNC \\server\share или HTTP/HTTPS)</span>
                         <input
                             type="text"
                             value={specificationSettings.linkServer}
                             onChange={(event) => onSpecificationSettingChange('linkServer', event.target.value)}
-                            placeholder="\\\\192.168.1.193\\PilotGroup"
+                            placeholder={"\\192.168.1.193\\PilotGroup  или  http://192.168.1.193:8080/files"}
                         />
                     </label>
                 </div>

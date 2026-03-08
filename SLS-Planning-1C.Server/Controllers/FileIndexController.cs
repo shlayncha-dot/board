@@ -77,16 +77,58 @@ public sealed class FileIndexController : ControllerBase
     [HttpGet("drawing-preview")]
     public IActionResult DrawingPreview([FromQuery] string detailName)
     {
+        var previewLinkResult = ResolveDrawingPreviewLink(detailName);
+        if (previewLinkResult.ErrorResult is not null)
+        {
+            return previewLinkResult.ErrorResult;
+        }
+
+        if (LooksLikeHttpUrl(previewLinkResult.PreviewUrl!))
+        {
+            return Redirect(previewLinkResult.PreviewUrl!);
+        }
+
+        return Ok(new DrawingPreviewLinkResponse
+        {
+            DetailName = detailName.Trim(),
+            PreviewUrl = previewLinkResult.PreviewUrl!
+        });
+    }
+
+    [HttpGet("drawing-preview-link")]
+    public IActionResult DrawingPreviewLink([FromQuery] string detailName)
+    {
+        var previewLinkResult = ResolveDrawingPreviewLink(detailName);
+        if (previewLinkResult.ErrorResult is not null)
+        {
+            return previewLinkResult.ErrorResult;
+        }
+
+        return Ok(new DrawingPreviewLinkResponse
+        {
+            DetailName = detailName.Trim(),
+            PreviewUrl = previewLinkResult.PreviewUrl!
+        });
+    }
+
+    private DrawingPreviewLinkResolution ResolveDrawingPreviewLink(string detailName)
+    {
         if (string.IsNullOrWhiteSpace(detailName))
         {
             _logger.LogWarning("Drawing preview request rejected: detailName is empty.");
-            return BadRequest("detailName is required.");
+            return new DrawingPreviewLinkResolution
+            {
+                ErrorResult = BadRequest("detailName is required.")
+            };
         }
 
         if (!_verificationResultCacheStore.HasVerificationSnapshot())
         {
             _logger.LogWarning("Drawing preview request rejected for detail '{DetailName}': verification was not executed yet.", detailName);
-            return BadRequest("Сначала сделайте верификацию");
+            return new DrawingPreviewLinkResolution
+            {
+                ErrorResult = BadRequest("Сначала сделайте верификацию")
+            };
         }
 
         var linkServer = _verificationSettingsStore.Get().SpecificationSettings.LinkServer;
@@ -96,27 +138,40 @@ public sealed class FileIndexController : ControllerBase
         if (string.IsNullOrWhiteSpace(primaryCachedCandidate))
         {
             _logger.LogWarning("Drawing preview file is missing in verification cache for detail '{DetailName}'.", detailName);
-            return NotFound("Файл не найден");
+            return new DrawingPreviewLinkResolution
+            {
+                ErrorResult = NotFound("Файл не найден")
+            };
         }
 
-        var existingCachedPath = FindExistingPath(cachedPdfCandidates);
-        if (string.IsNullOrWhiteSpace(existingCachedPath))
+        var previewUrl = FindPreviewUrlCandidate(cachedPdfCandidates);
+        if (string.IsNullOrWhiteSpace(previewUrl))
+        {
+            previewUrl = NormalizePathCandidate(primaryCachedCandidate);
+        }
+
+        if (string.IsNullOrWhiteSpace(previewUrl))
         {
             var missingReason = BuildMissingFileReason(primaryCachedCandidate);
 
             _logger.LogWarning(
-                "Drawing preview file from verification cache does not exist on disk for detail '{DetailName}'. Candidate: '{CandidatePath}'. Reason: {MissingReason}",
+                "Drawing preview file path is empty for detail '{DetailName}'. Candidate: '{CandidatePath}'. Reason: {MissingReason}",
                 detailName,
                 primaryCachedCandidate,
                 missingReason);
 
-            return NotFound($"Файл не найден. Проверенный путь: {primaryCachedCandidate}. Причина: {missingReason}");
+            return new DrawingPreviewLinkResolution
+            {
+                ErrorResult = NotFound($"Файл не найден. Проверенный путь: {primaryCachedCandidate}. Причина: {missingReason}")
+            };
         }
 
-        _logger.LogInformation("Drawing preview file resolved from verification cache for detail '{DetailName}': '{ResolvedPath}'.", detailName, existingCachedPath);
+        _logger.LogInformation("Drawing preview url resolved from verification cache for detail '{DetailName}': '{ResolvedPreviewUrl}'.", detailName, previewUrl);
 
-        var cachedContentType = ResolveContentType(Path.GetExtension(existingCachedPath));
-        return PhysicalFile(existingCachedPath, cachedContentType, enableRangeProcessing: true);
+        return new DrawingPreviewLinkResolution
+        {
+            PreviewUrl = previewUrl
+        };
     }
 
 
@@ -150,7 +205,7 @@ public sealed class FileIndexController : ControllerBase
         return CombinePath(linkServer, normalizedVerificationPath);
     }
 
-    private static string? FindExistingPath(IEnumerable<string> candidates)
+    private static string? FindPreviewUrlCandidate(IEnumerable<string> candidates)
     {
         foreach (var candidate in candidates)
         {
@@ -158,6 +213,11 @@ public sealed class FileIndexController : ControllerBase
             if (string.IsNullOrWhiteSpace(normalizedCandidate))
             {
                 continue;
+            }
+
+            if (LooksLikeHttpUrl(normalizedCandidate) || LooksLikeWindowsPath(normalizedCandidate))
+            {
+                return normalizedCandidate;
             }
 
             if (System.IO.File.Exists(normalizedCandidate))
@@ -345,19 +405,14 @@ public sealed class FileIndexController : ControllerBase
             && trimmed[1] == ':';
     }
 
-    private static string ResolveContentType(string? extension)
+    private static bool LooksLikeHttpUrl(string path)
     {
-        return extension?.ToLowerInvariant() switch
+        if (!Uri.TryCreate(path, UriKind.Absolute, out var uri))
         {
-            ".pdf" => "application/pdf",
-            ".png" => "image/png",
-            ".jpg" or ".jpeg" => "image/jpeg",
-            ".bmp" => "image/bmp",
-            ".gif" => "image/gif",
-            ".webp" => "image/webp",
-            ".svg" => "image/svg+xml",
-            _ => "application/octet-stream"
-        };
+            return false;
+        }
+
+        return uri.Scheme is Uri.UriSchemeHttp or Uri.UriSchemeHttps;
     }
 
     private static string BuildMissingFileReason(string path)
@@ -391,6 +446,18 @@ public sealed class FileIndexController : ControllerBase
 
         return "файл отсутствует или недоступен по правам для backend-процесса";
     }
+}
+
+public sealed class DrawingPreviewLinkResponse
+{
+    public required string DetailName { get; init; }
+    public required string PreviewUrl { get; init; }
+}
+
+public sealed class DrawingPreviewLinkResolution
+{
+    public IActionResult? ErrorResult { get; init; }
+    public string? PreviewUrl { get; init; }
 }
 
 public sealed class FileIndexTestRequest

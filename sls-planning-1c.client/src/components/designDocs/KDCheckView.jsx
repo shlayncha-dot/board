@@ -13,16 +13,13 @@ const KDTableRow = React.memo(({
     onToggleRow,
     selectedCell,
     onSelectCell,
-    onRowDoubleClick,
+    onNameCellDoubleClick,
     namingIssuesByRowId,
     namingTargetColumnKey,
     verificationIssuesByRowId,
     designationTargetColumnKey
 }) => (
-    <tr
-        className={`kd-data-row ${isChecked ? 'kd-row-checked' : ''}`.trim()}
-        onDoubleClick={() => onRowDoubleClick(row)}
-    >
+    <tr className={`kd-data-row ${isChecked ? 'kd-row-checked' : ''}`.trim()}>
         <td>
             <input
                 type="checkbox"
@@ -47,6 +44,8 @@ const KDTableRow = React.memo(({
                 verificationSeverity === 'duplicate' ? 'kd-cell-verification-duplicate' : ''
             ].filter(Boolean).join(' ');
 
+            const isNameCell = namingTargetColumnKey === column.key;
+
             return (
                 <td
                     key={`${row.id}-${column.key}`}
@@ -54,6 +53,7 @@ const KDTableRow = React.memo(({
                     onClick={() => {
                         onSelectCell(row.id, column.key);
                     }}
+                    onDoubleClick={isNameCell ? () => onNameCellDoubleClick(row) : undefined}
                     title={String(row[column.key] ?? '')}
                 >
                     {row[column.key]}
@@ -99,8 +99,6 @@ const KDCheckView = ({
     onCloseGeneralCheckReport,
     designationTargetColumnKey,
     onRequestDrawingPreview,
-    drawingPreview,
-    onCloseDrawingPreview,
     drawingPreviewError,
     onCloseDrawingPreviewError,
     onDrawingPreviewError
@@ -140,7 +138,7 @@ const KDCheckView = ({
         setSelectedCell({ rowId, columnKey });
     }, []);
 
-    const handleRowDoubleClick = React.useCallback(async (row) => {
+    const handleNameCellDoubleClick = React.useCallback(async (row) => {
         const detailName = String(
             row?.[designationTargetColumnKey]
             ?? row?.[namingTargetColumnKey]
@@ -235,10 +233,10 @@ const KDCheckView = ({
                 namingTargetColumnKey={namingTargetColumnKey}
                 verificationIssuesByRowId={verificationIssuesByRowId}
                 designationTargetColumnKey={designationTargetColumnKey}
-                onRowDoubleClick={handleRowDoubleClick}
+                onNameCellDoubleClick={handleNameCellDoubleClick}
             />
         ))
-    ), [checkedRows, designationTargetColumnKey, handleRowDoubleClick, handleSelectCell, namingIssuesByRowId, namingTargetColumnKey, onToggleRow, selectedCell, tableColumns, verificationIssuesByRowId, visibleRows]);
+    ), [checkedRows, designationTargetColumnKey, handleNameCellDoubleClick, handleSelectCell, namingIssuesByRowId, namingTargetColumnKey, onToggleRow, selectedCell, tableColumns, verificationIssuesByRowId, visibleRows]);
 
     const closeFilterPopover = React.useCallback(() => {
         setOpenFilterKey(null);
@@ -582,31 +580,6 @@ const KDCheckView = ({
                                     ))}
                                 </div>
                             )}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {drawingPreview && (
-                <div className="verification-report-overlay" onClick={onCloseDrawingPreview}>
-                    <div className="verification-report-modal drawing-preview-modal" onClick={(event) => event.stopPropagation()}>
-                        <h3>Превью: {drawingPreview.detailName}</h3>
-                        {drawingPreview.filePath ? <p className="drawing-preview-path">{drawingPreview.filePath}</p> : null}
-
-                        {drawingPreview.contentType.includes('pdf') ? (
-                            <iframe
-                                title={drawingPreview.fileName}
-                                src={drawingPreview.url}
-                                className="drawing-preview-frame"
-                            />
-                        ) : drawingPreview.contentType.startsWith('image/') ? (
-                            <img src={drawingPreview.url} alt={drawingPreview.fileName} className="drawing-preview-image" />
-                        ) : (
-                            <p>Формат файла не поддерживает встроенное превью.</p>
-                        )}
-
-                        <div className="modal-actions">
-                            <button type="button" className="cancel-btn" onClick={onCloseDrawingPreview}>Закрыть</button>
                         </div>
                     </div>
                 </div>

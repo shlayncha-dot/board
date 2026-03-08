@@ -248,7 +248,6 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
     const [namingLogs, setNamingLogs] = useState([]);
     const [isNamingLogOpen, setIsNamingLogOpen] = useState(false);
     const [generalCheckReport, setGeneralCheckReport] = useState(null);
-    const [drawingPreview, setDrawingPreview] = useState(null);
     const [drawingPreviewError, setDrawingPreviewError] = useState('');
 
     const appendNamingLog = useCallback((message) => {
@@ -1076,38 +1075,32 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
 
         if (!response.ok) {
             const errorText = (await response.text()).trim();
+            const pathMatch = errorText.match(/Проверенный путь:\s*(.+?)\.\s*Причина:/i);
+            const fallbackPath = pathMatch?.[1]?.trim();
+
+            if (fallbackPath) {
+                const opened = window.open(fallbackPath, '_blank', 'noopener,noreferrer');
+
+                if (!opened) {
+                    throw new Error('Браузер заблокировал открытие новой вкладки. Разрешите pop-up для сайта.');
+                }
+
+                return;
+            }
+
             throw new Error(errorText || 'Чертеж не найден');
         }
 
-        const contentType = response.headers.get('Content-Type') || '';
         const filePath = response.headers.get('X-Drawing-Path') || '';
-        const fileName = response.headers.get('X-Drawing-FileName') || normalizedDetailName;
-        const blob = await response.blob();
-        const previewUrl = URL.createObjectURL(blob);
 
-        setDrawingPreview((prevState) => {
-            if (prevState?.url) {
-                URL.revokeObjectURL(prevState.url);
-            }
+        if (!filePath) {
+            throw new Error(`Не удалось получить путь к чертежу для детали «${normalizedDetailName}».`);
+        }
 
-            return {
-                detailName: normalizedDetailName,
-                fileName,
-                filePath,
-                url: previewUrl,
-                contentType
-            };
-        });
-    }, []);
-
-    const closeDrawingPreview = useCallback(() => {
-        setDrawingPreview((prevState) => {
-            if (prevState?.url) {
-                URL.revokeObjectURL(prevState.url);
-            }
-
-            return null;
-        });
+        const opened = window.open(filePath, '_blank', 'noopener,noreferrer');
+        if (!opened) {
+            throw new Error('Браузер заблокировал открытие новой вкладки. Разрешите pop-up для сайта.');
+        }
     }, []);
 
     const openDrawingPreviewError = useCallback((message) => {
@@ -1188,8 +1181,6 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
                     onCloseGeneralCheckReport={() => setGeneralCheckReport(null)}
                     designationTargetColumnKey={designationTargetColumnKey}
                     onRequestDrawingPreview={handleDrawingPreviewRequest}
-                    drawingPreview={drawingPreview}
-                    onCloseDrawingPreview={closeDrawingPreview}
                     drawingPreviewError={drawingPreviewError}
                     onCloseDrawingPreviewError={closeDrawingPreviewError}
                     onDrawingPreviewError={openDrawingPreviewError}

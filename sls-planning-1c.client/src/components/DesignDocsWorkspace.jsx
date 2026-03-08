@@ -248,7 +248,6 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
     const [namingLogs, setNamingLogs] = useState([]);
     const [isNamingLogOpen, setIsNamingLogOpen] = useState(false);
     const [generalCheckReport, setGeneralCheckReport] = useState(null);
-    const [drawingPreviewError, setDrawingPreviewError] = useState('');
 
     const appendNamingLog = useCallback((message) => {
         setNamingLogs((prevState) => [...prevState, message]);
@@ -1068,8 +1067,6 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
             return;
         }
 
-        setDrawingPreviewError('');
-
         const query = new URLSearchParams({ detailName: normalizedDetailName });
         const response = await fetch(`${fileIndexApi.drawingPreview}?${query.toString()}`);
 
@@ -1101,14 +1098,6 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
         if (!opened) {
             throw new Error('Браузер заблокировал открытие новой вкладки. Разрешите pop-up для сайта.');
         }
-    }, []);
-
-    const openDrawingPreviewError = useCallback((message) => {
-        setDrawingPreviewError(String(message ?? '').trim() || 'Чертеж не найден');
-    }, []);
-
-    const closeDrawingPreviewError = useCallback(() => {
-        setDrawingPreviewError('');
     }, []);
 
     return (
@@ -1181,9 +1170,6 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
                     onCloseGeneralCheckReport={() => setGeneralCheckReport(null)}
                     designationTargetColumnKey={designationTargetColumnKey}
                     onRequestDrawingPreview={handleDrawingPreviewRequest}
-                    drawingPreviewError={drawingPreviewError}
-                    onCloseDrawingPreviewError={closeDrawingPreviewError}
-                    onDrawingPreviewError={openDrawingPreviewError}
                 />
             </div>
 

@@ -1119,7 +1119,9 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
             const payload = await response.json();
             const rawPreviewUrl = String(payload.previewUrl ?? '').trim();
             const normalizedPreviewUrl = normalizePreviewUrlForBrowser(payload.previewUrl);
-            const iframePreviewUrl = `${fileIndexApi.drawingPreview}?detailName=${encodeURIComponent(normalizedDetailName)}`;
+            const iframeProxyPreviewUrl = `${fileIndexApi.drawingPreview}?detailName=${encodeURIComponent(normalizedDetailName)}`;
+            const canUseDirectPreview = /^https?:\/\//i.test(normalizedPreviewUrl);
+            const iframePreviewUrl = canUseDirectPreview ? normalizedPreviewUrl : iframeProxyPreviewUrl;
 
             appendPreviewLog(`Путь, полученный из кэша верификации (previewUrl): ${rawPreviewUrl || '<пусто>'}`);
             appendPreviewLog(`Нормализованный путь из кэша: ${normalizedPreviewUrl || '<пусто>'}`);
@@ -1129,7 +1131,9 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
                 throw new Error('Ссылка для превью не найдена.');
             }
 
-            appendPreviewLog(`Использую backend proxy для iframe: ${iframePreviewUrl}`);
+            appendPreviewLog(canUseDirectPreview
+                ? `Использую прямой URL в iframe: ${iframePreviewUrl}`
+                : `Использую backend proxy для iframe: ${iframePreviewUrl}`);
             setPreviewDocumentUrl(iframePreviewUrl);
             setPreviewDetailName(normalizedDetailName);
             appendPreviewLog('URL успешно подготовлен. Открываю модальное окно превью.');

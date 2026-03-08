@@ -99,15 +99,18 @@ public sealed class FileIndexController : ControllerBase
             return NotFound("Файл не найден");
         }
 
-        var existingCachedPath = FindExistingPath([primaryCachedCandidate]);
+        var existingCachedPath = FindExistingPath(cachedPdfCandidates);
         if (string.IsNullOrWhiteSpace(existingCachedPath))
         {
-            _logger.LogWarning(
-                "Drawing preview file from verification cache does not exist on disk for detail '{DetailName}'. Candidate: '{CandidatePath}'.",
-                detailName,
-                primaryCachedCandidate);
+            var missingReason = BuildMissingFileReason(primaryCachedCandidate);
 
-            return NotFound($"Файл не найден. Проверенный путь: {primaryCachedCandidate}");
+            _logger.LogWarning(
+                "Drawing preview file from verification cache does not exist on disk for detail '{DetailName}'. Candidate: '{CandidatePath}'. Reason: {MissingReason}",
+                detailName,
+                primaryCachedCandidate,
+                missingReason);
+
+            return NotFound($"Файл не найден. Проверенный путь: {primaryCachedCandidate}. Причина: {missingReason}");
         }
 
         _logger.LogInformation("Drawing preview file resolved from verification cache for detail '{DetailName}': '{ResolvedPath}'.", detailName, existingCachedPath);
@@ -358,6 +361,38 @@ public sealed class FileIndexController : ControllerBase
             ".svg" => "image/svg+xml",
             _ => "application/octet-stream"
         };
+    }
+
+    private static string BuildMissingFileReason(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return "в кэше верификации не найден путь к PDF";
+        }
+
+        var normalizedPath = NormalizePathCandidate(path);
+        if (string.IsNullOrWhiteSpace(normalizedPath))
+        {
+            return "путь к файлу пустой после нормализации";
+        }
+
+        if (normalizedPath.StartsWith("\\\\", StringComparison.Ordinal) && !OperatingSystem.IsWindows())
+        {
+            return "backend работает не в Windows и не может читать UNC-пути (\\\\server\\share) напрямую";
+        }
+
+        var directory = Path.GetDirectoryName(normalizedPath);
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            return "не удалось определить папку файла";
+        }
+
+        if (!Directory.Exists(directory))
+        {
+            return "каталог файла недоступен для backend-процесса";
+        }
+
+        return "файл отсутствует или недоступен по правам для backend-процесса";
     }
 }
 

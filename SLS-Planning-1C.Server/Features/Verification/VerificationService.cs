@@ -268,7 +268,8 @@ public sealed class VerificationService : IVerificationService
             return false;
         }
 
-        return uri.Scheme is Uri.UriSchemeHttp or Uri.UriSchemeHttps;
+        return string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsWindowsRootedPath(string path)

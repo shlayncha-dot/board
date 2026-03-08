@@ -40,7 +40,7 @@ public sealed class PreviewGatewayWorker : BackgroundService
         {
             _logger.LogWarning(startException,
                 "Preview gateway is disabled because HttpListener could not start on {Prefix}. " +
-                "If you need external access, reserve URL ACL (for example: netsh http add urlacl url={Prefix} user=DOMAIN\\user).",
+                "If you need external access, reserve URL ACL (for example: netsh http add urlacl url=<prefix> user=DOMAIN\\user).",
                 prefix);
 
             return Task.CompletedTask;

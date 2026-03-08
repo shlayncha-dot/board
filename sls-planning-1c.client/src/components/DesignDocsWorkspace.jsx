@@ -1075,28 +1075,8 @@ const DesignDocsWorkspace = ({ activeSubItem, namingLogin }) => {
 
         try {
             const query = new URLSearchParams({ detailName: normalizedDetailName });
-            const response = await fetch(`${fileIndexApi.drawingPreview}?${query.toString()}`);
-
-            if (!response.ok) {
-                const errorText = (await response.text()).trim();
-                const pathMatch = errorText.match(/Проверенный путь:\s*(.+?)\.\s*Причина:/i);
-                const fallbackPath = pathMatch?.[1]?.trim();
-
-                if (fallbackPath) {
-                    previewWindow.location.replace(fallbackPath);
-                    return;
-                }
-
-                throw new Error(errorText || 'Чертеж не найден');
-            }
-
-            const filePath = response.headers.get('X-Drawing-Path') || '';
-
-            if (!filePath) {
-                throw new Error(`Не удалось получить путь к чертежу для детали «${normalizedDetailName}».`);
-            }
-
-            previewWindow.location.replace(filePath);
+            const drawingPreviewUrl = `${fileIndexApi.drawingPreview}?${query.toString()}`;
+            previewWindow.location.replace(drawingPreviewUrl);
         } catch (error) {
             previewWindow.close();
             throw error;

@@ -116,9 +116,6 @@ public sealed class FileIndexController : ControllerBase
         _logger.LogInformation("Drawing preview file resolved from verification cache for detail '{DetailName}': '{ResolvedPath}'.", detailName, existingCachedPath);
 
         var cachedContentType = ResolveContentType(Path.GetExtension(existingCachedPath));
-        Response.Headers.Append("X-Drawing-Path", existingCachedPath);
-        Response.Headers.Append("X-Drawing-FileName", Path.GetFileName(existingCachedPath));
-
         return PhysicalFile(existingCachedPath, cachedContentType, enableRangeProcessing: true);
     }
 
